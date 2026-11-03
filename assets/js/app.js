@@ -1,0 +1,772 @@
+/* ==========================================================================
+   Almarah Foundation — fundraising platform UI
+   Vanilla JS, no dependencies. Everything degrades gracefully: the site is
+   fully usable with JavaScript disabled.
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  /* ---------- Mobile navigation ---------- */
+  function initNav() {
+    var toggle = document.querySelector("[data-nav-toggle]");
+    var panel = document.getElementById("mobilePanel");
+    if (!toggle || !panel) return;
+
+    toggle.addEventListener("click", function () {
+      var open = panel.classList.toggle("open");
+      toggle.classList.toggle("open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      document.body.style.overflow = open ? "hidden" : "";
+    });
+
+    panel.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", function () {
+        panel.classList.remove("open");
+        toggle.classList.remove("open");
+        document.body.style.overflow = "";
+      });
+    });
+
+    toggle.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") toggle.click();
+    });
+  }
+
+  /* ---------- Sticky header ---------- */
+  function initStickyHeader() {
+    var header = document.getElementById("site-header");
+    if (!header) return;
+    var onScroll = function () {
+      header.classList.toggle("is-stuck", window.scrollY > 40);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+  }
+
+  /* ---------- Reveal on scroll ---------- */
+  function initReveal() {
+    var items = document.querySelectorAll(".reveal");
+    if (!items.length) return;
+
+    if (!("IntersectionObserver" in window)) {
+      items.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+
+    items.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ---------- Progress bars: width comes from data-w ---------- */
+  function initBars() {
+    document.querySelectorAll(".progress > span[data-w]").forEach(function (bar) {
+      var target = Math.max(0, Math.min(100, parseFloat(bar.getAttribute("data-w")) || 0));
+      bar.style.width = "0%";
+      window.requestAnimationFrame(function () {
+        window.setTimeout(function () { bar.style.width = target + "%"; }, 60);
+      });
+    });
+  }
+
+  /* ---------- Animated counters ---------- */
+  function initCounters() {
+    var nodes = document.querySelectorAll("[data-count]");
+    if (!nodes.length) return;
+
+    var run = function (el) {
+      var target = parseFloat(el.getAttribute("data-count")) || 0;
+      var suffix = el.getAttribute("data-suffix") || "";
+      var duration = 1200;
+      var start = null;
+
+      function step(ts) {
+        if (start === null) start = ts;
+        var progress = Math.min(1, (ts - start) / duration);
+        var value = Math.floor(target * (1 - Math.pow(1 - progress, 3)));
+        el.textContent = value.toLocaleString("en-PK") + suffix;
+        if (progress < 1) window.requestAnimationFrame(step);
+      }
+
+      window.requestAnimationFrame(step);
+    };
+
+    if (!("IntersectionObserver" in window)) {
+      nodes.forEach(run);
+      return;
+    }
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) { run(entry.target); io.unobserve(entry.target); }
+      });
+    }, { threshold: 0.4 });
+
+    nodes.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ---------- Toast ---------- */
+  function toast(message) {
+    var el = document.getElementById("toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "toast";
+      el.className = "toast";
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span></span>';
+    el.querySelector("span").textContent = message;
+    window.requestAnimationFrame(function () { el.classList.add("show"); });
+    window.setTimeout(function () { el.classList.remove("show"); }, 2600);
+  }
+
+  /* ---------- Donation amount picker ---------- */
+  function initAmounts() {
+    var buttons = document.querySelectorAll(".amount-btn[data-amount]");
+    var input = document.querySelector("[data-amount-input]");
+    var custom = document.querySelector("[data-amount-custom]");
+    if (!buttons.length || !input) return;
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        buttons.forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        var amount = btn.getAttribute("data-amount");
+        input.value = amount;
+        if (custom) custom.value = amount;
+        updateSummary();
+      });
+    });
+
+    if (custom) {
+      custom.addEventListener("input", function () {
+        buttons.forEach(function (b) { b.classList.remove("active"); });
+        input.value = custom.value;
+        updateSummary();
+      });
+    }
+
+    input.addEventListener("input", updateSummary);
+  }
+
+  /* ---------- Live donation summary ---------- */
+  function updateSummary() {
+    var input = document.querySelector("[data-amount-input]");
+    var targets = document.querySelectorAll("[data-summary-amount]");
+    var cover = document.querySelector("[data-cover-fees]");
+    var coverRow = document.querySelector("[data-cover-fee-row]");
+    if (!input || !targets.length) return;
+
+    // Both the "Amount" and the "Total" rows carry data-summary-amount.
+    var amount = parseFloat(String(input.value).replace(/[^0-9.]/g, "")) || 0;
+    var text = "Rs " + amount.toLocaleString("en-PK", { maximumFractionDigits: 2 });
+    targets.forEach(function (target) { target.textContent = text; });
+
+    if (coverRow && cover) {
+      coverRow.style.display = cover.checked ? "flex" : "none";
+    }
+  }
+
+  function initChoices() {
+    var radios = document.querySelectorAll(".choice input[type=radio]");
+    if (!radios.length) return;
+    function sync() {
+      radios.forEach(function (r) {
+        var box = r.closest(".choice");
+        if (box) box.classList.toggle("active", r.checked);
+      });
+    }
+    radios.forEach(function (r) { r.addEventListener("change", sync); });
+    sync();
+  }
+
+  function initSummary() {
+    var cover = document.querySelector("[data-cover-fees]");
+    if (cover) cover.addEventListener("change", updateSummary);
+    updateSummary();
+  }
+
+  /* ---------- Confirm destructive actions ---------- */
+  function initConfirms() {
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      var message = form.getAttribute("data-confirm");
+      if (message && !window.confirm(message)) {
+        e.preventDefault();
+        return;
+      }
+
+      // Guard against double submission of slow payment/approval requests.
+      var submit = form.querySelector("[type=submit]");
+      if (submit && form.getAttribute("data-busy") !== "off") {
+        window.setTimeout(function () {
+          submit.disabled = true;
+          submit.dataset.originalText = submit.textContent;
+          submit.textContent = "Working…";
+        }, 0);
+      }
+    });
+  }
+
+  /* ---------- Copy to clipboard ---------- */
+  function initCopy() {
+    document.querySelectorAll("[data-copy]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var text = btn.getAttribute("data-copy");
+        var done = function () { toast("Copied to clipboard"); };
+
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done, function () { toast("Copy failed"); });
+          return;
+        }
+
+        var area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        try { document.execCommand("copy"); done(); } catch (err) { toast("Copy failed"); }
+        document.body.removeChild(area);
+      });
+    });
+  }
+
+  /* ---------- Share buttons ---------- */
+  function initShare() {
+    document.querySelectorAll("[data-share]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var url = btn.getAttribute("data-share");
+        var title = btn.getAttribute("data-share-title") || document.title;
+
+        if (navigator.share) {
+          navigator.share({ title: title, url: url }).catch(function () {});
+          return;
+        }
+
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(function () {
+            toast("Link copied — share it anywhere");
+          }, function () {});
+        }
+      });
+    });
+  }
+
+  /* ---------- Modals (progressive enhancement of <details> free dialogs) ---------- */
+  function initModals() {
+    document.querySelectorAll("[data-modal-open]").forEach(function (trigger) {
+      trigger.addEventListener("click", function (e) {
+        var modal = document.getElementById(trigger.getAttribute("data-modal-open"));
+        if (!modal) return;
+        e.preventDefault();
+        modal.classList.add("open");
+        document.body.style.overflow = "hidden";
+        var focusable = modal.querySelector("input, textarea, select, button");
+        if (focusable) focusable.focus();
+      });
+    });
+
+    document.querySelectorAll("[data-modal-close]").forEach(function (closer) {
+      closer.addEventListener("click", function () {
+        var modal = closer.closest(".modal-back");
+        if (!modal) return;
+        modal.classList.remove("open");
+        document.body.style.overflow = "";
+      });
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      document.querySelectorAll(".modal-back.open").forEach(function (modal) {
+        modal.classList.remove("open");
+        document.body.style.overflow = "";
+      });
+    });
+  }
+
+  /* ---------- Auto-submit filter selects ---------- */
+  function initAutoSubmit() {
+    document.querySelectorAll("[data-autosubmit]").forEach(function (el) {
+      el.addEventListener("change", function () {
+        var form = el.closest("form");
+        if (form) form.submit();
+      });
+    });
+  }
+
+  /* ---------- Admin branding image previews ---------- */
+  function initBrandingPreviews() {
+    document.querySelectorAll("[data-branding-input]").forEach(function (input) {
+      var preview = document.getElementById(input.getAttribute("data-branding-preview"));
+      var fallback = document.getElementById(input.getAttribute("data-branding-fallback"));
+      var remove = document.getElementById(input.getAttribute("data-branding-remove"));
+      var currentSrc = input.getAttribute("data-current-src") || "";
+      var objectUrl = "";
+
+      if (!preview || !fallback) return;
+
+      function showFallback() {
+        preview.hidden = true;
+        fallback.hidden = false;
+      }
+
+      function releaseObjectUrl() {
+        if (objectUrl && window.URL && window.URL.revokeObjectURL) {
+          window.URL.revokeObjectURL(objectUrl);
+        }
+        objectUrl = "";
+      }
+
+      function showCurrent() {
+        if (currentSrc) {
+          preview.src = currentSrc;
+          preview.hidden = false;
+          fallback.hidden = true;
+        } else {
+          showFallback();
+        }
+      }
+
+      input.addEventListener("change", function () {
+        var file = input.files && input.files[0];
+        if (!file || !window.URL || !window.URL.createObjectURL) {
+          releaseObjectUrl();
+          showCurrent();
+          return;
+        }
+
+        if (remove) remove.checked = false;
+        releaseObjectUrl();
+        objectUrl = window.URL.createObjectURL(file);
+        preview.src = objectUrl;
+        preview.hidden = false;
+        fallback.hidden = true;
+      });
+
+      if (remove) {
+        remove.addEventListener("change", function () {
+          if (remove.checked) {
+            input.value = "";
+            releaseObjectUrl();
+            showFallback();
+          } else {
+            showCurrent();
+          }
+        });
+      }
+    });
+  }
+
+  /* ---------- Add-another repeatable rows (impact numbers, etc.) ---------- */
+  function initRepeaters() {
+    document.querySelectorAll("[data-repeater-add]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var list = document.querySelector(btn.getAttribute("data-repeater-add"));
+        if (!list) return;
+        var template = list.querySelector("[data-repeater-row]");
+        if (!template) return;
+        var clone = template.cloneNode(true);
+        clone.querySelectorAll("input, textarea").forEach(function (input) {
+          var name = input.getAttribute("name");
+          if (name) {
+            input.setAttribute("name", name.replace(/\[\d+\]/, "[" + list.children.length + "]"));
+          }
+          input.value = "";
+        });
+        list.appendChild(clone);
+      });
+    });
+  }
+
+  /* ---------- Print ---------- */
+  function initPrint() {
+    document.querySelectorAll("[data-print]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        window.print();
+      });
+    });
+  }
+
+  /* ---------- Fundraiser form (counters, quick picks, cover preview) ---------- */
+  function initFundraiserForm() {
+    var form = document.querySelector(".fr-form");
+    if (!form) { return; }
+
+    // Live character counters.
+    form.querySelectorAll("[data-count-for]").forEach(function (counter) {
+      var input = document.getElementById(counter.getAttribute("data-count-for"));
+      if (!input) { return; }
+      var min = parseInt(counter.getAttribute("data-min") || "0", 10);
+      var max = parseInt(counter.getAttribute("data-max") || "0", 10);
+      function update() {
+        var len = input.value.length;
+        if (min > 0 && len < min) {
+          counter.textContent = len + " / " + min + " minimum";
+          counter.className = "fr-count" + (len > 0 ? " is-warn" : "");
+        } else {
+          counter.textContent = len + (max ? " / " + max.toLocaleString() : "");
+          counter.className = "fr-count" + (len > 0 ? " is-ok" : "");
+        }
+      }
+      input.addEventListener("input", update);
+      update();
+    });
+
+    // Goal quick picks and the "Rs 50,000" preview.
+    var goal = document.getElementById("goal");
+    var preview = document.getElementById("goalPreview");
+    var goalChips = form.querySelectorAll("[data-goal]");
+    function updateGoal() {
+      if (!goal) { return; }
+      var value = parseFloat(goal.value);
+      if (preview) {
+        preview.textContent = value > 0 ? "Rs " + Math.round(value).toLocaleString("en-US") : "";
+      }
+      goalChips.forEach(function (chip) {
+        chip.classList.toggle("is-active", parseFloat(chip.getAttribute("data-goal")) === value);
+      });
+    }
+    goalChips.forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        goal.value = chip.getAttribute("data-goal");
+        updateGoal();
+        goal.focus();
+      });
+    });
+    if (goal) { goal.addEventListener("input", updateGoal); updateGoal(); }
+
+    // End date quick picks.
+    var endAt = document.getElementById("end_at");
+    var dayChips = form.querySelectorAll("[data-days]");
+    function pad(n) { return n < 10 ? "0" + n : String(n); }
+    function isoIn(days) {
+      var d = new Date();
+      d.setDate(d.getDate() + days);
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    }
+    function updateDays() {
+      dayChips.forEach(function (chip) {
+        var days = parseInt(chip.getAttribute("data-days"), 10);
+        var on = days === 0 ? endAt.value === "" : endAt.value === isoIn(days);
+        chip.classList.toggle("is-active", on);
+      });
+    }
+    if (endAt) {
+      dayChips.forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          var days = parseInt(chip.getAttribute("data-days"), 10);
+          endAt.value = days === 0 ? "" : isoIn(days);
+          updateDays();
+        });
+      });
+      endAt.addEventListener("input", updateDays);
+      updateDays();
+    }
+
+    // Cover photo: preview and a friendly size/type check before upload.
+    var fileInput = document.getElementById("cover_image");
+    var drop = document.getElementById("coverDrop");
+    var img = document.getElementById("coverPreview");
+    var err = document.getElementById("coverError");
+    var maxBytes = parseInt(form.getAttribute("data-max-upload") || "0", 10);
+    if (fileInput && drop && img) {
+      fileInput.addEventListener("change", function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (err) { err.hidden = true; err.textContent = ""; }
+        if (!file) { return; }
+        var okType = /^image\/(jpeg|png|webp)$/.test(file.type);
+        if (!okType || (maxBytes && file.size > maxBytes)) {
+          fileInput.value = "";
+          if (err) {
+            err.textContent = !okType ? "Please choose a JPG, PNG or WebP image."
+              : "That photo is too large. Please choose one under " + Math.round(maxBytes / 1048576) + " MB.";
+            err.hidden = false;
+          }
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          img.src = ev.target.result;
+          img.hidden = false;
+          drop.classList.add("has-image");
+        };
+        reader.readAsDataURL(file);
+      });
+      ["dragenter", "dragover"].forEach(function (name) {
+        drop.addEventListener(name, function () { drop.classList.add("is-drag"); });
+      });
+      ["dragleave", "drop"].forEach(function (name) {
+        drop.addEventListener(name, function () { drop.classList.remove("is-drag"); });
+      });
+    }
+
+    // Stop double submissions.
+    var submit = document.getElementById("frSubmit");
+    form.addEventListener("submit", function () {
+      if (submit) { setTimeout(function () { submit.classList.add("is-busy"); }, 0); }
+    });
+  }
+
+  /* ---------- Dashboard motion (user dashboard + admin) ---------- */
+  function initDashboardFX() {
+    var body = document.body;
+    if (!body || !(body.classList.contains("dash-body") || body.classList.contains("admin-body"))) { return; }
+
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Time-of-day greeting (uses the visitor's own clock).
+    document.querySelectorAll("[data-greeting]").forEach(function (el) {
+      var h = new Date().getHours();
+      el.textContent = h < 5 ? "Working late" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+    });
+
+    // Stagger indexes for the sidebar and cards; cursor glow on cards.
+    document.querySelectorAll(".dash-nav a").forEach(function (a, i) { a.style.setProperty("--i", i); });
+    document.querySelectorAll(".stat-card").forEach(function (card, i) {
+      card.style.setProperty("--i", i);
+      card.addEventListener("mousemove", function (ev) {
+        var r = card.getBoundingClientRect();
+        card.style.setProperty("--mx", (ev.clientX - r.left) + "px");
+        card.style.setProperty("--my", (ev.clientY - r.top) + "px");
+      });
+    });
+
+    // Count-up for the big numbers: "Rs 1,250,000", "42", "Rs 1.2M" ...
+    function countUp(el, delay) {
+      var original = el.textContent;
+      var m = original.match(/\d[\d,]*(?:\.\d+)?/);
+      if (!m || reduce) { return; }
+      var raw = m[0];
+      var target = parseFloat(raw.replace(/,/g, ""));
+      if (!isFinite(target) || target <= 0) { return; }
+      var decimals = (raw.split(".")[1] || "").length;
+      var grouped = raw.indexOf(",") > -1;
+      var pre = original.slice(0, m.index);
+      var post = original.slice(m.index + raw.length);
+      var duration = 1400;
+      var start = null;
+      function fmt(v) {
+        return grouped
+          ? v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+          : v.toFixed(decimals);
+      }
+      el.textContent = pre + fmt(0) + post;
+      function step(ts) {
+        if (start === null) { start = ts; }
+        var t = Math.min(1, (ts - start) / duration);
+        var eased = 1 - Math.pow(1 - t, 4);
+        el.textContent = t < 1 ? pre + fmt(target * eased) + post : original;
+        if (t < 1) { window.requestAnimationFrame(step); }
+      }
+      window.setTimeout(function () { window.requestAnimationFrame(step); }, delay);
+    }
+    document.querySelectorAll(".stat-card .v").forEach(function (el, i) { countUp(el, 200 + i * 85); });
+
+    // Scroll reveal for panels, charts and lists, with row/bar stagger.
+    var targets = document.querySelectorAll(".dash-main .panel, .dash-main .chart-bars, .dash-main .grid-2 > *, .dash-main .grid-3 > *");
+    if (!targets.length) { return; }
+    document.documentElement.classList.add("dash-js");
+
+    targets.forEach(function (el) {
+      el.classList.add("dr");
+      el.querySelectorAll("tbody tr, .donations-list li").forEach(function (row, i) {
+        row.style.setProperty("--r", Math.min(i, 12));
+      });
+      el.querySelectorAll(".bar").forEach(function (bar, i) { bar.style.setProperty("--b", i); });
+    });
+
+    function show(el) { el.classList.add("is-in"); }
+
+    if (!("IntersectionObserver" in window) || reduce) {
+      targets.forEach(show);
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) { show(entry.target); io.unobserve(entry.target); }
+      });
+    }, { threshold: 0, rootMargin: "0px 0px -6% 0px" });
+    targets.forEach(function (el) { io.observe(el); });
+
+    // Safety net: never leave content hidden if the observer is slow.
+    window.setTimeout(function () {
+      targets.forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight && !el.classList.contains("is-in")) { show(el); }
+      });
+    }, 1500);
+  }
+
+  /* Button ripple + slim loading bar when clicking through the sidebar. */
+  function initDashboardClicks() {
+    var body = document.body;
+    if (!body || !(body.classList.contains("dash-body") || body.classList.contains("admin-body"))) { return; }
+
+    document.addEventListener("click", function (ev) {
+      var btn = ev.target.closest && ev.target.closest(".dash-main .btn, .dash-head .btn");
+      if (!btn) { return; }
+      var r = btn.getBoundingClientRect();
+      var dot = document.createElement("span");
+      dot.className = "dash-ripple";
+      dot.style.left = (ev.clientX - r.left) + "px";
+      dot.style.top = (ev.clientY - r.top) + "px";
+      btn.appendChild(dot);
+      window.setTimeout(function () { if (dot.parentNode) { dot.parentNode.removeChild(dot); } }, 650);
+    });
+
+    var bar = document.createElement("div");
+    bar.className = "dash-loadbar";
+    body.appendChild(bar);
+    var main = document.querySelector(".dash-main");
+    document.querySelectorAll(".dash-nav a[href]").forEach(function (a) {
+      a.addEventListener("click", function (ev) {
+        if (ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) { return; }
+        var href = a.getAttribute("href") || "";
+        if (href === "" || href.charAt(0) === "#" || a.target === "_blank") { return; }
+        bar.classList.add("go");
+        if (main) { main.classList.add("is-leaving"); }
+      });
+    });
+    // Coming back with the browser's Back button must not show a half-faded page.
+    window.addEventListener("pageshow", function () {
+      bar.classList.remove("go");
+      if (main) { main.classList.remove("is-leaving"); }
+    });
+  }
+
+  /* ---------- Chart tooltips (charts are drawn in PHP; see partials/charts.php) ---------- */
+  function initCharts() {
+    var targets = document.querySelectorAll(".ch-wrap, .ch-donut, .ch-hbars");
+    if (!targets.length) { return; }
+
+    var tip = document.createElement("div");
+    tip.className = "ch-tip";
+    tip.setAttribute("role", "tooltip");
+    document.body.appendChild(tip);
+
+    function place(ev) {
+      var pad = 14;
+      var w = tip.offsetWidth, h = tip.offsetHeight;
+      var x = ev.clientX + pad, y = ev.clientY - h - pad;
+      if (x + w > window.innerWidth - 8) { x = ev.clientX - w - pad; }
+      if (y < 8) { y = ev.clientY + pad; }
+      tip.style.left = Math.max(8, x) + "px";
+      tip.style.top = y + "px";
+    }
+    function show(ev) {
+      var el = ev.target.closest ? ev.target.closest("[data-tip]") : null;
+      if (!el) { tip.classList.remove("on"); return; }
+      tip.textContent = el.getAttribute("data-tip");
+      tip.classList.add("on");
+      place(ev);
+    }
+    targets.forEach(function (box) {
+      box.addEventListener("mousemove", show);
+      box.addEventListener("click", show);              // tap on touch screens
+      box.addEventListener("mouseleave", function () { tip.classList.remove("on"); });
+    });
+    window.addEventListener("scroll", function () { tip.classList.remove("on"); }, { passive: true });
+  }
+
+  /* ---------- Payment result page: confetti, auto status check, print ---------- */
+  function initPaymentResult() {
+    var page = document.querySelector(".pr-page");
+    if (!page) { return; }
+    var outcome = page.getAttribute("data-pr") || "";
+    var ref = page.getAttribute("data-pr-ref") || "";
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    page.querySelectorAll("[data-print]").forEach(function (btn) {
+      btn.addEventListener("click", function () { window.print(); });
+    });
+
+    function remembered(key, set) {
+      try {
+        if (set) { window.sessionStorage.setItem(key, set); return set; }
+        return window.sessionStorage.getItem(key);
+      } catch (e) { return null; }
+    }
+
+    // A short burst of confetti, once per donation per browser session.
+    if (outcome === "completed" && !reduce && !remembered("prConfetti:" + ref)) {
+      remembered("prConfetti:" + ref, "1");
+      var box = document.createElement("div");
+      box.className = "pr-confetti";
+      box.setAttribute("aria-hidden", "true");
+      var colours = ["#a92d63", "#f2c200", "#1e7a45", "#c4386f", "#3b4b86", "#ffffff"];
+      for (var i = 0; i < 80; i++) {
+        var bit = document.createElement("span");
+        bit.style.left = (Math.random() * 100) + "%";
+        bit.style.setProperty("--c", colours[i % colours.length]);
+        bit.style.setProperty("--w", (6 + Math.random() * 7) + "px");
+        bit.style.setProperty("--h", (9 + Math.random() * 11) + "px");
+        bit.style.setProperty("--dx", ((Math.random() - 0.5) * 220) + "px");
+        bit.style.setProperty("--rot", (360 + Math.random() * 720) + "deg");
+        bit.style.setProperty("--d", (2.8 + Math.random() * 2.2) + "s");
+        bit.style.setProperty("--delay", (0.5 + Math.random() * 1.1) + "s");
+        box.appendChild(bit);
+      }
+      document.body.appendChild(box);
+      window.setTimeout(function () { if (box.parentNode) { box.parentNode.removeChild(box); } }, 6500);
+    }
+
+    // Still being confirmed: look again every 20 seconds (at most 12 times).
+    var pollUrl = page.getAttribute("data-pr-poll");
+    var counter = document.getElementById("prCountdown");
+    var line = document.getElementById("prPoll");
+    if (pollUrl && counter) {
+      var key = "prPolls:" + ref;
+      var tries = parseInt(remembered(key) || "0", 10);
+      if (tries >= 12) {
+        if (line) { line.textContent = "Still waiting for the bank. We will email you as soon as it confirms."; }
+        return;
+      }
+      var left = 20;
+      var timer = window.setInterval(function () {
+        if (document.hidden) { return; }             // do not count while the tab is in the background
+        left -= 1;
+        counter.textContent = String(Math.max(left, 0));
+        if (left <= 0) {
+          window.clearInterval(timer);
+          remembered(key, String(tries + 1));
+          window.location.href = pollUrl;
+        }
+      }, 1000);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initNav();
+    initStickyHeader();
+    initReveal();
+    initBars();
+    initCounters();
+    initAmounts();
+    initSummary();
+    initChoices();
+    initConfirms();
+    initCopy();
+    initShare();
+    initModals();
+    initAutoSubmit();
+    initBrandingPreviews();
+    initRepeaters();
+    initPrint();
+    initFundraiserForm();
+    initDashboardFX();
+    initDashboardClicks();
+    initCharts();
+    initPaymentResult();
+  });
+})();

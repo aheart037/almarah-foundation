@@ -1,0 +1,226 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core;
+
+/**
+ * Response value object. Headers are always explicit; no response may be
+ * emitted with a missing Content-Type.
+ */
+final class Response
+{
+    private int $status;
+    private string $body;
+    /** @var array<string,string> */
+    private array $headers;
+    private ?string $filePath = null;
+
+    public function __construct(string $body = '', int $status = 200, array $headers = [])
+    {
+        $this->body = $body;
+        $this->status = $status;
+        $this->headers = $headers;
+    }
+
+    public static function html(string $body, int $status = 200): self
+    {
+        return new self($body, $status, ['Content-Type' => 'text/html; charset=utf-8']);
+    }
+
+    /** @param array<string,mixed> $data */
+    public static function json(array $data, int $status = 200): self
+    {
+        return new self(
+            json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+            $status,
+            ['Content-Type' => 'application/json; charset=utf-8']
+        );
+    }
+
+    public static function text(string $body, int $status = 200): self
+    {
+        return new self($body, $status, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    /** Stream a file from disk as a download (backups). */
+    public static function file(string $path, string $filename, string $mime = 'application/octet-stream'): self
+    {
+        $safe = preg_replace('/[^A-Za-z0-9._-]/', '-', $filename) ?: 'download';
+        $r = new self('', 200, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'attachment; filename="' . $safe . '"',
+            'Content-Length'      => (string) filesize($path),
+            'Cache-Control'       => 'private, no-store',
+        ]);
+        $r->filePath = $path;
+        return $r;
+    }
+
+    /** File download (CSV exports etc.). $filename must be a safe ASCII name. */
+    public static function download(string $body, string $filename, string $mime = 'text/csv; charset=utf-8'): self
+    {
+        $safe = preg_replace('/[^A-Za-z0-9._-]/', '-', $filename) ?: 'download';
+        return new self($body, 200, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'attachment; filename="' . $safe . '"',
+            'Cache-Control'       => 'private, no-store',
+        ]);
+    }
+
+    /**
+     * Redirect. The Location target is always generated internally by the
+     * application (never echoed from user input) to prevent open redirects.
+     */
+    public static function redirect(string $to, int $status = 302): self
+    {
+        // Controllers redirect with site-relative paths ('/admin'). On a folder
+        // install those must keep the folder prefix, or the browser lands
+        // outside the application. Absolute URLs are left alone.
+        return new self('', $status, ['Location' => self::locationFor($to)]);
+    }
+
+    public static function noContent(): self
+    {
+        return new self('', 204);
+    }
+
+    public function withHeader(string $name, string $value): self
+    {
+        $this->headers[$name] = $value;
+        return $this;
+    }
+
+    /** @param array<string,string> $headers */
+    public function withHeaders(array $headers): self
+    {
+        foreach ($headers as $name => $value) {
+            $this->headers[$name] = $value;
+        }
+        return $this;
+    }
+
+    public function status(): int
+    {
+        return $this->status;
+    }
+
+    public function body(): string
+    {
+        return $this->body;
+    }
+
+    /** @return array<string,string> */
+    public function headers(): array
+    {
+        return $this->headers;
+    }
+
+    /**
+     * Where a redirect actually points. Site-relative targets gain the folder
+     * the site is served from (https://host/donate), absolute URLs are left
+     * alone, and a target that already carries the folder is not doubled.
+     */
+    public static function locationFor(string $target): string
+    {
+        return BasePath::prefix($target);
+    }
+
+    /** True when the visitor reached us over HTTPS (directly or via a proxy/CDN). */
+    public static function isSecureRequest(): bool
+    {
+        $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        if ($https !== '' && $https !== 'off') {
+            return true;
+        }
+        if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+            return true;
+        }
+        if ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443') {
+            return true;
+        }
+
+        return str_contains((string) ($_SERVER['HTTP_CF_VISITOR'] ?? ''), '"https"');
+    }
+
+    /**
+     * Extra browser protections added in v15. Each one is skipped when a
+     * controller already set the same header itself, so nothing is sent twice.
+     */
+    private function sendHardeningHeaders(): void
+    {
+        $already = array_change_key_case($this->headers, CASE_LOWER);
+
+        // Do not advertise the PHP version to scanners.
+        header_remove('X-Powered-By');
+
+        // Tell browsers to use HTTPS only (one year). Sent on HTTPS requests
+        // only, as the header is ignored over plain HTTP.
+        if (self::isSecureRequest()) {
+            header('Strict-Transport-Security: max-age=31536000');
+        }
+
+        // Switch off browser features the site never uses.
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
+        header('Cross-Origin-Opener-Policy: same-origin-allow-popups');
+        header('X-Permitted-Cross-Domain-Policies: none');
+
+        // Content-Security-Policy: blocks injected scripts, plugins and
+        // look-alike base tags. It is deliberately not restricting
+        // form-action, because donors are posted on to the bank's own page.
+        if (!isset($already['content-security-policy'])) {
+            try {
+                $csp = trim((string) \App\Core\Config::get('security.headers.content_security_policy', ''));
+            } catch (\Throwable) {
+                $csp = '';
+            }
+            if ($csp !== '') {
+                header('Content-Security-Policy: ' . $csp);
+            }
+        }
+
+        // HTML pages hold per-visitor tokens (CSRF, flash messages): shared
+        // caches and proxies must never keep a copy.
+        $type = strtolower((string) ($already['content-type'] ?? ''));
+        if (!isset($already['cache-control']) && str_starts_with($type, 'text/html')) {
+            header('Cache-Control: private, no-cache, must-revalidate');
+        }
+    }
+
+    public function send(): void
+    {
+        if (!headers_sent()) {
+            http_response_code($this->status);
+            foreach ($this->headers as $name => $value) {
+                // Middleware redirects (guest -> /login, unverified -> /verify-email)
+                // are raised as exceptions rather than built by redirect(), so
+                // the folder prefix is applied here as the last line of defence:
+                // on a subfolder install every redirect keeps the folder, no
+                // matter which code path produced it. prefix() ignores absolute
+                // URLs and values that already carry the folder.
+                if (strcasecmp($name, 'Location') === 0) {
+                    $value = self::locationFor($value);
+                }
+
+                header($name . ': ' . $value, true);
+            }
+            // Security headers applied to every response.
+            header('X-Content-Type-Options: nosniff');
+            header('Referrer-Policy: strict-origin-when-cross-origin');
+            header('X-Frame-Options: SAMEORIGIN');
+            $this->sendHardeningHeaders();
+        }
+
+        if ($this->filePath !== null) {
+            if (function_exists('ob_get_level')) {
+                while (ob_get_level() > 0) {
+                    ob_end_clean();
+                }
+            }
+            readfile($this->filePath);
+            return;
+        }
+
+        echo $this->body;
+    }
+}
