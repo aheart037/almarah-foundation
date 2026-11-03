@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\InboxController;
 use App\Http\Controllers\Admin\MenuController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -137,6 +138,11 @@ return static function (Router $router) use ($admin, $adminCsrf, $superCsrf, $ca
     $router->post('/admin/settings/site', [SettingsController::class, 'saveSite'], $adminCsrf, 'admin.settings.site');
     $router->post('/admin/settings/branding', [SettingsController::class, 'saveBranding'], $adminCsrf, 'admin.settings.branding');
     $router->post('/admin/settings/gateway/{code}/test', [SettingsController::class, 'testGateway'], $superCsrf, 'admin.settings.gateway.test');
+
+    // --- reports: read-only; reports.view enforced server-side on pages AND PDFs --
+    $router->get('/admin/reports', [ReportController::class, 'overview'], $can('reports.view'), 'admin.reports');
+    $router->get('/admin/reports/{slug}', [ReportController::class, 'show'], $can('reports.view'), 'admin.reports.show');
+    $router->get('/admin/reports/{slug}/pdf', [ReportController::class, 'pdf'], $can('reports.view'), 'admin.reports.pdf');
 
     // --- audit --------------------------------------------------------------
     $router->get('/admin/audit', [AuditController::class, 'index'], $can('logs.view'), 'admin.audit');

@@ -77,6 +77,7 @@ $link = static function (string $href, string $label, string $iconName, string $
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/style.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/admin.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/reports.css')) ?>">
 <?php require __DIR__ . '/../partials/favicon.php'; ?>
 </head>
 <body class="admin-body">
@@ -147,6 +148,20 @@ $link = static function (string $href, string $label, string $iconName, string $
           <?php if ($can('logs.view')): ?>
             <?= $link('admin/payment-callbacks', 'Payment callbacks', 'callback', $is('/admin/payment-callbacks')) ?>
           <?php endif; ?>
+        <?php endif; ?>
+
+        <?php if ($can('reports.view')): ?>
+          <?php $reportsOpen = str_starts_with($path, '/admin/reports'); ?>
+          <details class="nav-details" <?= $reportsOpen ? 'open' : '' ?>>
+            <summary class="<?= $reportsOpen ? 'active' : '' ?>"><?= $icon('report') ?> Reports</summary>
+            <?php foreach (\App\Services\ReportService::catalog() as $reportSlug => $reportItem):
+                $reportHref = $reportSlug === 'overview' ? 'admin/reports' : 'admin/reports/' . $reportSlug;
+                $reportOn = $reportSlug === 'overview'
+                    ? in_array($path, ['/admin/reports', '/admin/reports/overview'], true)
+                    : $path === '/admin/reports/' . $reportSlug; ?>
+              <a href="<?= e(base_url($reportHref)) ?>" class="nav-sub <?= $reportOn ? 'active' : '' ?>"><?= e($reportItem['title']) ?></a>
+            <?php endforeach; ?>
+          </details>
         <?php endif; ?>
 
         <?php if ($can('users.manage') || $can('settings.manage') || $can('logs.view') || $can('backups.manage')): ?>

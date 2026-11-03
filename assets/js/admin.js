@@ -201,3 +201,13 @@
   }
   sel.addEventListener('change', sync); sync();
 })();
+
+/* ---------- Reports: feedback while the PDF is being prepared ---------- */
+(function () {
+  var btn = document.getElementById("pdfExport");
+  if (!btn) { return; }
+  btn.addEventListener("click", function () {
+    btn.classList.add("is-busy");
+    window.setTimeout(function () { btn.classList.remove("is-busy"); }, 4000);
+  });
+})();
