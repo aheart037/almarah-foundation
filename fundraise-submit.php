@@ -117,7 +117,7 @@ $failBack = static function (string $message, string $target, string $kind) use 
         $jsonOut(false, ['message' => $message]);
     }
     $old = $request->all();
-    unset($old['_token'], $old['password'], $old['password_confirmation']);
+    unset($old['_token'], $old['donation_attempt'], $old['password'], $old['password_confirmation']);
     $session->flash('_old', $old);
     $session->flash('error', $message);
     // Main website: the single /donate page with a purpose selector.
@@ -135,7 +135,7 @@ if (!$request->isPost()) {
     if ($isAjax) {
         $jsonOut(false, ['message' => 'Invalid request.'], 405);
     }
-    header('Location: ' . \App\Core\Response::locationFor('/fundraisers'), true, 302);
+    header('Location: ' . \App\Core\Response::locationFor('/donate'), true, 302);
     exit;
 }
 
@@ -149,7 +149,7 @@ if (!$csrf->check($request)) {
         $jsonOut(false, ['message' => 'Your session expired. Please reload the donation form and try again.'], 419);
     }
     $session->flash('error', 'Your session expired. Please try again.');
-    header('Location: ' . \App\Core\Response::locationFor('/fundraisers'), true, 302);
+    header('Location: ' . \App\Core\Response::locationFor('/donate'), true, 302);
     exit;
 }
 
@@ -216,6 +216,38 @@ if ($amountMinor <= 0) {
     $failBack('Enter a valid donation amount in rupees.', $target, $kind);
 }
 
+// The single /donate form never converts currencies. Bank transfers show
+// published details only; they do not create an online payment or a paid gift.
+if ($kind === 'purpose') {
+    $currency = strtoupper(trim((string) $request->input('currency', 'PKR')));
+    if ($gatewayCode === 'bank_transfer') {
+        $publishedBanks = $app->make(\App\Services\CmsService::class)->bankAccounts();
+        $hasAccount = false;
+        foreach ($publishedBanks as $bank) {
+            if (strtoupper((string) ($bank['currency'] ?? '')) === $currency) { $hasAccount = true; break; }
+        }
+        if (!$hasAccount) $failBack('No published bank account is available for this currency.', $target, $kind);
+        if ($isAjax) $jsonOut(false, ['message' => 'A transfer is not an online payment. View the account details on /donate and report it after transferring.']);
+        $session->flash('success', 'Use the listed account for your currency. After transferring, report it for verification; no payment has been recorded yet.');
+        header('Location: ' . \App\Core\Response::locationFor('/donate?currency=' . rawurlencode($currency) . '#bankTransfer'), true, 302);
+        exit;
+    }
+    if ($currency !== 'PKR' || strtoupper((string) \App\Core\Config::get('app.currency', 'PKR')) !== 'PKR') {
+        $failBack('Online card payments are available in PKR only. Select a matching bank transfer instead.', $target, $kind);
+    }
+    // PHP's session lock serializes simultaneous posts from one browser. A
+    // one-use form token prevents double-clicks, back/refresh and replay from
+    // creating a second pending donation; fundraising checkout stays intact.
+    $attempt = $request->input('donation_attempt');
+    $nonces = (array) $session->get('donate.form_nonces', []);
+    if (!is_string($attempt) || !preg_match('/^[a-f0-9]{32}$/D', $attempt)
+        || !isset($nonces[$attempt]) || !is_int($nonces[$attempt]) || $nonces[$attempt] < time() - 3600) {
+        $failBack('This donation form has expired or was already sent. Check your payment status before submitting another donation.', $target, $kind);
+    }
+    unset($nonces[$attempt]);
+    $session->set('donate.form_nonces', $nonces);
+}
+
 if (!in_array($gatewayCode, $gateways->availableCodes(), true)) {
     $failBack('Choose a valid payment method.', $target, $kind);
 }
@@ -238,6 +270,16 @@ try {
         'donation_type' => $request->input('donation_type') === 'monthly' ? 'monthly' : 'one_time',
         'donor_country' => $request->input('country') !== null ? mb_substr(trim((string) $request->input('country')), 0, 80) : null,
         'donor_city'    => $request->input('city') !== null ? mb_substr(trim((string) $request->input('city')), 0, 120) : null,
+        'acknowledgment_self' => $request->input('acknowledgment_self', '1'),
+        'recipient_name' => $request->input('recipient_name'),
+        'recipient_phone' => $request->input('recipient_phone'),
+        'recipient_email' => $request->input('recipient_email'),
+        'recipient_address' => $request->input('recipient_address'),
+        'acknowledgment_instructions' => $request->input('acknowledgment_instructions'),
+        'referral_enabled' => $request->input('referral_enabled', '0'),
+        'referrer_name' => $request->input('referrer_name'),
+        'referrer_phone' => $request->input('referrer_phone'),
+        'referral_notes' => $request->input('referral_notes'),
         'ip'           => $request->ip(),
         'user_id'      => $user['id'] ?? null,
     ], $resolved, $gatewayCode);

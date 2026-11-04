@@ -27,7 +27,7 @@ final class AuthService
     private const SELF_SERVICE_ROLES = ['donor'];
 
     /** Roles that may enter the admin panel at all; what they see is decided per permission. */
-    public const STAFF_ROLES = ['super_admin', 'admin', 'finance_manager', 'content_manager', 'volunteer_manager'];
+    public const STAFF_ROLES = ['super_admin', 'admin', 'finance_manager', 'content_manager', 'volunteer_manager', 'initial_reviewer', 'initial_review', 'verification_officer'];
 
     /** @var array<int,string>|null */
     private ?array $cachedPermissions = null;
@@ -143,7 +143,7 @@ final class AuthService
             return ['ok' => false, 'message' => 'Those credentials do not match our records.', 'user_id' => null];
         }
 
-        if ((string) $user['status'] === 'suspended') {
+        if ((string) $user['status'] !== 'active') {
             $this->audit->log('account.login_suspended', 'user', (string) $user['id']);
             return ['ok' => false, 'message' => 'Your account is suspended. Please contact support.', 'user_id' => (int) $user['id']];
         }
@@ -166,6 +166,7 @@ final class AuthService
         $this->audit->log('account.login', 'user', (string) $user['id'], [], (int) $user['id']);
 
         $this->cachedUser = null;
+        $this->cachedPermissions = null;
         $this->resolved = false;
     }
 
@@ -180,6 +181,7 @@ final class AuthService
         $this->session->destroy();
 
         $this->cachedUser = null;
+        $this->cachedPermissions = null;
         $this->resolved = false;
     }
 
@@ -212,7 +214,7 @@ final class AuthService
         }
 
         $user = $this->users->find($id);
-        if ($user === null || (string) $user['status'] === 'suspended') {
+        if ($user === null || (string) $user['status'] !== 'active') {
             $this->session->forget('user_id');
             $this->cachedUser = null;
             return null;
@@ -248,7 +250,7 @@ final class AuthService
     /** Any role that is allowed into the admin shell. */
     public function isStaff(): bool
     {
-        return $this->hasAnyRole(self::STAFF_ROLES);
+        return $this->hasAnyRole(self::STAFF_ROLES) || $this->permissions() !== [];
     }
 
     /**

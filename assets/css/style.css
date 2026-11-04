@@ -3811,6 +3811,7 @@ table.data-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(-
 
 /* buttons: press + ripple (ripple element added by app.js) */
 .dash-main .btn, .dash-head .btn { position: relative; overflow: hidden; }
+.dash-main .admin-user-create-submit { max-width: 100%; white-space: normal; text-align: center; }
 .dash-main .btn:active { transform: translateY(0) scale(.97); }
 .dash-ripple {
   position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; pointer-events: none;

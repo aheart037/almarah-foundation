@@ -16,8 +16,10 @@
     <p class="sub">Every queued, sent and failed message.</p>
   </div>
   <div class="sr-actions">
-    <a class="btn btn-light" href="<?= e(base_url('admin/email-templates')) ?>">Templates</a>
-    <a class="btn btn-outline-brand" href="<?= e(base_url('admin/settings#smtp')) ?>">SMTP settings</a>
+    <?php if ($can('settings.manage')): ?>
+      <a class="btn btn-light" href="<?= e(base_url('admin/email-templates')) ?>">Templates</a>
+      <a class="btn btn-outline-brand" href="<?= e(base_url('admin/settings#smtp')) ?>">SMTP settings</a>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -99,7 +101,7 @@
               <td><?= e(dt((string) $job['available_at'], 'j M Y H:i')) ?></td>
               <td class="wrap muted" style="font-size:12.5px"><?= e(mb_substr((string) ($job['last_error'] ?? ''), 0, 160)) ?></td>
               <td>
-                <?php if ((string) $job['status'] !== 'sent'): ?>
+                <?php if ((string) $job['status'] === 'failed' && ($isAdmin || ($can('finance.manage') && str_starts_with((string) $job['event_key'], 'donation.')))): ?>
                   <form method="post" action="<?= e(base_url('admin/email-queue/' . (string) $job['id'] . '/retry')) ?>">
                     <?= csrf_field() ?>
                     <button class="btn btn-light btn-sm" type="submit">Retry</button>

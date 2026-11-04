@@ -50,7 +50,7 @@ $sortLink = static function (string $key) use ($pdfQuery, $report, $basePath, $q
     return base_url($basePath) . $qs($q);
 };
 
-$cellHtml = static function (array $col, array $row) use ($cur): string {
+$cellHtml = static function (array $col, array $row) use ($cur, $can, $currentUserRoles): string {
     $text = ReportService::cell($col, $row, $cur);
     $raw = (string) ($row[$col['key']] ?? '');
     $type = (string) ($col['type'] ?? 'text');
@@ -66,9 +66,13 @@ $cellHtml = static function (array $col, array $row) use ($cur): string {
     if ($link !== '' && $raw !== '') {
         $id = $row['donation_id'] ?? $row['id'] ?? null;
         $href = match ($link) {
-            'donation'   => $id !== null ? 'admin/donations/' . $id : '',
-            'fundraiser' => isset($row['id']) ? 'admin/fundraisers/' . $row['id'] : '',
-            'campaign'   => isset($row['id']) ? 'admin/campaigns/' . $row['id'] . '/edit' : '',
+            'donation'   => $id !== null && $can('donations.view') ? 'admin/donations/' . $id : '',
+            // There is no local /admin/fundraisers/{id} page. Keep the value
+            // readable rather than sending staff to an unrelated 404.
+            'fundraiser' => '',
+            'campaign'   => isset($row['id']) && $can('content.manage')
+                && (in_array('admin', $currentUserRoles ?? [], true) || in_array('super_admin', $currentUserRoles ?? [], true))
+                    ? 'admin/campaigns/' . $row['id'] . '/edit' : '',
             default      => '',
         };
         if ($href !== '') {
@@ -115,6 +119,8 @@ $table = static function (array $columns, array $rows, ?array $sortable = null) 
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
       <span>Export PDF</span>
     </a>
+    <a class="btn btn-light" href="<?= e(base_url('admin/reports/' . $slug . '/csv') . $qs(array_diff_key($pdfQuery, array_flip(['page'])))) ?>" download>Export CSV</a>
+    <a class="btn btn-light" href="<?= e(base_url('admin/reports/' . $slug . '/xlsx') . $qs(array_diff_key($pdfQuery, array_flip(['page'])))) ?>" download>Export Excel</a>
   </div>
 </div>
 
@@ -204,7 +210,7 @@ $table = static function (array $columns, array $rows, ?array $sortable = null) 
       <div class="ch-head">
         <div>
           <h2>Confirmed donations over time</h2>
-          <p class="panel-sub"><?= ($report['chart']['unit'] ?? 'day') === 'day' ? 'Per day' : 'Per month' ?>, completed donations only.</p>
+          <p class="panel-sub"><?= ($report['chart']['unit'] ?? 'day') === 'day' ? 'Per day' : 'Per month' ?>, staff-verified completed donations only.</p>
         </div>
         <div class="ch-kpi"><b><?= e(money($trendTotal, $cur)) ?></b><small>in this period</small></div>
       </div>
@@ -244,7 +250,7 @@ $table = static function (array $columns, array $rows, ?array $sortable = null) 
       <a class="btn btn-brand" href="<?= e(base_url($basePath) . $qs(['date_from' => '', 'date_to' => ''])) ?>">Show all time</a>
     </div>
   <?php else: ?>
-    <?= $table((array) $report['columns'], (array) $report['rows'], $slug === 'overview' ? null : []) ?>
+    <?= $table((array) $report['columns'], (array) $report['rows'], []) ?>
     <?php
     $query = array_diff_key($pdfQuery, array_flip(['page']));
     $page = (int) $report['page'];
@@ -278,7 +284,7 @@ $table = static function (array $columns, array $rows, ?array $sortable = null) 
 <?php if ($slug === 'overview'): ?>
   <section class="panel">
     <h2>All reports</h2>
-    <p class="panel-sub">Each report has its own filters and an Export PDF button.</p>
+    <p class="panel-sub">Each report has its own filters and live database results.</p>
     <div class="rp-directory">
       <?php foreach ($catalog as $key => $item): if ($key === 'overview') { continue; } ?>
         <a class="rp-tile" href="<?= e(base_url('admin/reports/' . $key)) ?>">

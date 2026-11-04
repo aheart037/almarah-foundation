@@ -1,0 +1,24 @@
+# Almarah Foundation V3 — package and setup
+
+**Release ID:** V3 · **Release name:** Almarah Foundation V3 · **Release status:** QA-tested local package; **NOT approved for production payments**. Read `V3-RELEASE-NOTES.md` and `V3-FINAL-QA-REPORT.md` before deploying. The historical `README_V2.md` and `START-HERE.md` are retained as prior-version context; use this V3 guide for this archive, not their old ZIP/config names.
+
+## Archive layout and preservation
+
+The archive has one `Almarah-Foundation-V3/` directory containing the complete application, public assets, PHP entry points, `vendor/` PHPMailer runtime library/autoloader, migrations/seeders, tests, config templates and docs. It intentionally contains **no database dump or private data**, `.git/`, `node_modules/`, `.env`, filled-in `config.php`, generated APP_KEY, logs or runtime caches. `storage/` and `uploads/` contain only required protection files/placeholders. Keep V1 (`ee39ca6 v1`) and V2 history/backups separately; do not unpack over an old installation without an offline backup and approved migration plan.
+
+## Fresh installation on an isolated environment
+
+1. Provision PHP **8.2+** with `pdo_mysql`, JSON, mbstring, OpenSSL, cURL and fileinfo, MySQL/MariaDB, HTTPS, and writable protected `storage/`/`uploads/`. Use Apache/LiteSpeed with the shipped `.htaccess` or equivalent Nginx rules that refuse direct access to configuration, code, storage and backup files. Point the web root at the extracted application's root in a **new location**, not a V1/V2 root.
+2. Copy `.env.example` to a **private** `.env` or configure variables in a secret manager; set the DB, `APP_URL`, `APP_KEY`, HTTPS cookies, mail and a nonblank `SETUP_LOCK`. Alternatively copy `config.dist.php` to a private `config.php` for basic hosting parameters; environment variables take precedence over `config.php`, which takes precedence over `.env`. Keep real secrets out of Git, ZIPs and web-accessible files. Do not copy a development `.env` into production.
+3. The archive includes the bundled `vendor/` runtime dependencies. Validate installed PHP extensions and dependency versions on the destination; if rebuilding dependencies with Composer, use an approved reproducible process and inspect package compatibility. No PHPUnit binary or Composer executable was available in local QA.
+4. Take a snapshot of the **separate** destination database. On a fresh empty DB, run `php bin/console migrate` and `php bin/console db:seed` from the application root (or use the first-install `/setup` flow behind the setup lock). There are **17 numbered migrations** through `0017_v3_reconciliation_links.sql`; do not run the destructive `tests/*_test.php` against any real DB. On upgrades, use the migration preflight and backup instructions in `V3-PART-9-SECURITY.md`; migration DDL cannot be assumed to auto-roll back. Seeders do not license rewriting historical financial records.
+5. Configure SMTP/queue and verify deliverability; configure only approved bank accounts with the correct currency and published status. Do not enable online gateways because this release lacks real-provider acceptance and Stripe is not implemented. Test bank-transfer submission and finance permissions with non-production data.
+6. Review the V3 report for authorization, finance, grant and currency behavior. Verify routes, 320–1440 px layouts, HTTP status, protection of `.env`, `storage/` and `config.php`, logs and backups in the actual host. Turn off debug and restrict `/setup` after installation. Plan rollback by restoring a pre-upgrade database snapshot and previous application directory together.
+
+## Upgrade from V1/V2
+
+**Do not run this ZIP as an in-place production upgrade without a separate change window and approval.** Back up files + DB, preserve V1/V2 checkout and copies, compare current schema to migrations, review `V3-PART-9-SECURITY.md`, and test a full restore on a staging copy first. Confirm migration statuses, legacy payment verification classifications and all gateway settings before switching traffic. Never treat historical `completed` as provider-verified or merge different currencies into a single financial total.
+
+## External services / payments
+
+Geo-IP: `https://ipwho.is/` (server-side visitor IP; check disclosure and provider limits). FX estimates: `https://open.er-api.com/v6/latest/PKR` (cache/fallback; informational only). No key is required by the current implementation. Bank gateways (`MEEZAN_*` and `ETISALAT_*`/UBL) are existing code paths with simulated tests; keep disabled and require approved provider documentation, merchant credentials supplied through secure channels, sandbox trials and verified callbacks before any production use. **No Stripe gateway exists**: `STRIPE_*` settings would not activate Stripe; Stripe requires a separate implementation and eligible merchant account. See `V3-RELEASE-NOTES.md` for configuration and approvals.

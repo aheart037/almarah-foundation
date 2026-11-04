@@ -27,7 +27,7 @@ $maxTrend = max(1, ...array_map(static fn ($r) => (int) $r['total'], $trend ?: [
   <div class="stat-card brand">
     <div class="k"><?= e($monthLabel) ?></div>
     <div class="v"><?= e(money_short((int) $summary['completed'])) ?></div>
-    <div class="d"><?= (int) $summary['count'] ?> confirmed donation<?= (int) $summary['count'] === 1 ? '' : 's' ?></div>
+    <div class="d">PKR · <?= (int) $summary['count'] ?> independently verified donation<?= (int) $summary['count'] === 1 ? '' : 's' ?></div>
   </div>
   <div class="stat-card">
     <div class="k">Open reconciliation items</div>
@@ -50,7 +50,9 @@ $maxTrend = max(1, ...array_map(static fn ($r) => (int) $r['total'], $trend ?: [
         <?php if ($next <= gmdate('Y-m')): ?><a class="btn btn-light btn-sm" href="<?= e(base_url('admin/finance?month=' . $next)) ?>"><?= e(date('M Y', strtotime($next . '-01'))) ?> &rarr;</a><?php endif; ?>
       </div>
     </div>
-    <h3 class="muted" style="font-size:13px;margin:12px 0 6px">By purpose</h3>
+    <h3 class="muted" style="font-size:13px;margin:12px 0 6px">Verified totals by currency (never combined)</h3>
+    <table class="table"><tbody><?php foreach ($summary['by_currency'] as $r): ?><tr><td><?= e($r['currency']) ?></td><td class="num"><?= (int)$r['n'] ?></td><td class="num"><?= e(money((int)$r['total'],(string)$r['currency'])) ?></td></tr><?php endforeach; ?></tbody></table>
+    <h3 class="muted" style="font-size:13px;margin:12px 0 6px">By purpose — verified PKR</h3>
     <table class="table">
       <tbody>
       <?php foreach ($summary['by_purpose'] as $r): ?>
@@ -59,7 +61,7 @@ $maxTrend = max(1, ...array_map(static fn ($r) => (int) $r['total'], $trend ?: [
       <?php if ($summary['by_purpose'] === []): ?><tr><td class="muted" colspan="3">No confirmed donations this month.</td></tr><?php endif; ?>
       </tbody>
     </table>
-    <h3 class="muted" style="font-size:13px;margin:16px 0 6px">By method</h3>
+    <h3 class="muted" style="font-size:13px;margin:16px 0 6px">By method — verified PKR</h3>
     <table class="table">
       <tbody>
       <?php foreach ($summary['by_method'] as $r): ?>
@@ -70,7 +72,7 @@ $maxTrend = max(1, ...array_map(static fn ($r) => (int) $r['total'], $trend ?: [
     <h3 class="muted" style="font-size:13px;margin:16px 0 6px">All statuses (created this month)</h3>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       <?php foreach ($summary['by_status'] as $r): ?>
-        <span class="<?= e(status_badge_class((string) $r['status'])) ?>"><?= e((string) $r['status']) ?> · <?= (int) $r['n'] ?> · <?= e(money_short((int) $r['total'])) ?></span>
+        <span class="<?= e(status_badge_class((string) $r['status'])) ?>"><?= e((string) $r['status']) ?> · <?= (int) $r['n'] ?> · <?= e(money_short((int) $r['total'], (string) $r['currency'])) ?></span>
       <?php endforeach; ?>
     </div>
   </section>
@@ -127,7 +129,7 @@ $maxTrend = max(1, ...array_map(static fn ($r) => (int) $r['total'], $trend ?: [
 </div>
 
 <section class="panel">
-  <h2>Last 12 months</h2>
+  <h2>Last 12 months · verified PKR</h2>
   <div class="bars" style="display:flex;align-items:flex-end;gap:6px;height:120px">
     <?php foreach ($trend as $r): $h = max(4, (int) round(100 * (int) $r['total'] / $maxTrend)); ?>
       <a href="<?= e(base_url('admin/finance?month=' . $r['ym'])) ?>" title="<?= e($r['ym'] . ': ' . money((int) $r['total']) . ' (' . (int) $r['n'] . ')') ?>"
@@ -152,7 +154,7 @@ $maxTrend = max(1, ...array_map(static fn ($r) => (int) $r['total'], $trend ?: [
           <tr>
             <td><?= (int) $r['id'] ?></td>
             <td style="white-space:nowrap"><?= e(substr((string) $r['period_start'], 0, 10)) ?> → <?= e(substr((string) $r['period_end'], 0, 10)) ?><div class="muted" style="font-size:12px"><?= e((string) ($r['gateway_name'] ?? 'All')) ?></div></td>
-            <td class="num"><?= (int) $r['donations_count'] ?><div class="muted" style="font-size:12px"><?= e(money_short((int) $r['verified_minor'])) ?> verified</div></td>
+            <td class="num"><?= (int) $r['donations_count'] ?><div class="muted" style="font-size:12px"><?= e(money_short((int) $r['verified_minor'])) ?> independently verified PKR</div></td>
             <td class="num"><?= (int) $r['mismatch_count'] ?></td>
             <td class="num"><?= (int) $r['open_items'] > 0 ? '<span class="badge badge-amber">' . (int) $r['open_items'] . '</span>' : '<span class="badge badge-green">0</span>' ?></td>
             <td><?= e((string) ($r['run_by_name'] ?? 'system')) ?><div class="muted" style="font-size:12px"><?= e(dt((string) $r['created_at'], 'j M H:i')) ?></div></td>

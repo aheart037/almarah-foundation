@@ -13,6 +13,7 @@ declare(strict_types=1);
 use App\Core\Router;
 use App\Http\Controllers\Public\AuthController;
 use App\Http\Controllers\Public\DonateController;
+use App\Http\Controllers\Public\OfflineDonationController;
 use App\Http\Controllers\Public\DonationStatusController;
 use App\Http\Controllers\Public\FormsController;
 use App\Http\Controllers\Public\HomeController;
@@ -35,6 +36,10 @@ return static function (Router $router): void {
     // --- website -----------------------------------------------------------
     $router->get('/', [HomeController::class, 'index'], [], 'home');
     $router->get('/donate', [DonateController::class, 'index'], [], 'donate');
+    $router->post('/donate/currency', [DonateController::class, 'preference'], [CsrfMiddleware::class], 'donate.currency');
+    $router->post('/donate/estimate', [DonateController::class, 'estimate'], [CsrfMiddleware::class], 'donate.estimate');
+    $router->get('/donate/transfer', [OfflineDonationController::class, 'form'], [], 'donate.transfer');
+    $router->post('/donate/transfer', [OfflineDonationController::class, 'submit'], [CsrfMiddleware::class], 'donate.transfer.submit');
 
     // Public forms (JSON for the site's AJAX handler, redirect + flash otherwise).
     $router->post('/forms/contact', [FormsController::class, 'contact'], [CsrfMiddleware::class], 'forms.contact');

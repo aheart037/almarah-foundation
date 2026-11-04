@@ -460,12 +460,10 @@ $faviconUrl = site_brand_asset('site.favicon');
 
   <div class="alert alert-info">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></svg>
-    <p>These platform-wide controls apply immediately to existing and newly registered fundraiser accounts. Administrators retain access.</p>
+    <p>Fundraiser controls are not connected on this site. The separate fundraising deployment and its settings API must be confirmed before these options can be changed here.</p>
   </div>
 
-  <form method="post" action="<?= e(base_url('admin/settings/fundraiser-capabilities')) ?>">
-    <?= csrf_field() ?>
-
+  <fieldset disabled aria-label="Fundraiser controls unavailable" style="border:0;padding:0;margin:0;min-width:0;max-width:100%;box-sizing:border-box">
     <div class="capability-options">
       <label class="checkbox-row capability-option">
         <input type="checkbox" name="manage_pages" value="1" <?= !empty($fundraiserCapabilities['manage_pages']) ? 'checked' : '' ?>>
@@ -484,9 +482,9 @@ $faviconUrl = site_brand_asset('site.favicon');
     </div>
 
     <div class="form-actions">
-      <button class="btn btn-brand" type="submit">Save fundraiser controls</button>
+      <button class="btn btn-brand" type="button" disabled>Fundraiser controls unavailable</button>
     </div>
-  </form>
+  </fieldset>
 </section>
 
 <section class="panel" id="site">
@@ -581,5 +579,5 @@ $faviconUrl = site_brand_asset('site.favicon');
     <dt>Failed</dt><dd><?= e((string) (int) ($queueStats['failed'] ?? 0)) ?></dd>
   </dl>
 
-  <p class="mt-2"><a class="link-arrow" href="<?= e(base_url('admin/email-queue')) ?>">Open the email queue</a></p>
+  <?php if ($can('logs.view')): ?><p class="mt-2"><a class="link-arrow" href="<?= e(base_url('admin/email-queue')) ?>">Open the email queue</a></p><?php endif; ?>
 </section>

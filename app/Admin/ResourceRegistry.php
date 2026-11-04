@@ -208,7 +208,7 @@ final class ResourceRegistry
                     'iban'             => ['type' => 'text', 'label' => 'IBAN', 'rules' => 'nullable|string|max:60', 'half' => true],
                     'swift_code'       => ['type' => 'text', 'label' => 'SWIFT / BIC', 'rules' => 'nullable|string|max:20', 'half' => true],
                     'branch'           => ['type' => 'text', 'label' => 'Branch / sort code', 'rules' => 'nullable|string|max:160', 'half' => true],
-                    'currency'         => ['type' => 'select', 'label' => 'Currency', 'options' => ['PKR' => 'PKR', 'USD' => 'USD', 'GBP' => 'GBP', 'EUR' => 'EUR', 'AED' => 'AED', 'CAD' => 'CAD'], 'rules' => 'required|in:PKR,USD,GBP,EUR,AED,CAD', 'default' => 'PKR', 'half' => true],
+                    'currency'         => ['type' => 'select', 'label' => 'Currency', 'options' => ['PKR' => 'PKR', 'USD' => 'USD', 'GBP' => 'GBP', 'EUR' => 'EUR', 'AED' => 'AED', 'SAR' => 'SAR', 'CAD' => 'CAD', 'AUD' => 'AUD'], 'rules' => 'required|in:PKR,USD,GBP,EUR,AED,SAR,CAD,AUD', 'default' => 'PKR', 'half' => true],
                     'account_type'     => ['type' => 'text', 'label' => 'Account type / note', 'rules' => 'nullable|string|max:60', 'half' => true, 'help' => 'e.g. Zakat, Islamic Banking, Zelle'],
                     'logo_path'        => ['type' => 'image', 'label' => 'Bank logo', 'folder' => 'banks', 'rules' => 'nullable|string|max:255'],
                     'is_international' => ['type' => 'bool', 'label' => 'International account', 'default' => 0],

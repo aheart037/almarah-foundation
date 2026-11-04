@@ -6,6 +6,8 @@ use App\Core\Env;
 
 return [
     'name'        => Env::get('APP_NAME', 'Almarah Foundation'),
+    'version'     => 'V3',
+    'release_name'=> 'Almarah Foundation V3',
     'env'         => Env::get('APP_ENV', 'production'),
     'debug'       => (bool) Env::get('APP_DEBUG', false),
     'url'         => rtrim((string) Env::get('APP_URL', ''), '/'),
@@ -34,7 +36,7 @@ return [
             'host'     => (string) Env::get('FUNDRAISE_DB_HOST', ''),
             'database' => (string) Env::get('FUNDRAISE_DB_DATABASE', ''),
             'username' => (string) Env::get('FUNDRAISE_DB_USERNAME', ''),
-            'password' => (string) Env::get('FUNDRAISE_DB_PASSWORD', ''),
+            'password' => Env::secret('FUNDRAISE_DB_PASSWORD'),
         ],
     ],
 

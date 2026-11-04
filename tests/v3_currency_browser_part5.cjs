@@ -1,0 +1,72 @@
+/* Disposable local HTTP browser test; cached deterministic rates, no network provider. */
+const {chromium}=require('playwright');
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const base=process.env.DONATION_TEST_URL;
+const cache=process.env.CURRENCY_TEST_CACHE;
+if(!base||!/^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/.test(base)||!cache||!cache.includes('test'))throw Error('Use local disposable server and test cache');
+(async()=>{
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});let checks=0;
+ try{
+  const page=await browser.newPage({viewport:{width:390,height:844}});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base+'/donate');
+  assert.equal(await page.locator('#currencySearch').isVisible(),true);checks++;
+  assert.equal(await page.locator('#donationCurrency').inputValue(),'PKR');checks++;
+  assert.equal(await page.locator('.currency-option').count(),4);checks++;
+  assert.equal(await page.locator('[data-code=GBP]').count(),0,'unpublished bank currency unavailable');checks++;
+  await page.locator('#currencySearch').fill('dollar');
+  assert.equal(await page.locator('#currencyOptions [data-code=USD]').isVisible(),true);checks++;
+  assert.equal(await page.locator('#currencyOptions [data-code=EUR]').isVisible(),false);checks++;
+  await page.locator('#currencySearch').press('Escape');
+  assert.equal(await page.locator('#currencyOptions').isVisible(),false);checks++;
+  await page.locator('#currencySearch').fill('USD');
+  await page.locator('#currencySearch').press('Enter');
+  assert.equal(await page.locator('#donationCurrency').inputValue(),'USD');checks++;
+  assert.equal(await page.locator('#currencyOptions').isVisible(),false);checks++;
+  assert.equal(await page.locator('input[name=amount_preset]:checked').inputValue(),'36.00','10000 PKR default preset converted to 36.00 USD estimate');checks++;
+  assert.match(await page.locator('#rateStatus').textContent(),/Rates updated .* UTC/);checks++;
+  assert.match(await page.locator('#sumEstimateNote').textContent(),/Estimated amount only/);checks++;
+  assert.equal(await page.locator('[data-online-method]:visible').count(),0);checks++;
+  assert.equal(await page.locator('[data-bank-currency=USD]').isVisible(),true);checks++;
+  await page.reload();
+  assert.equal(await page.locator('#donationCurrency').inputValue(),'USD','manual selection persists on server');checks++;
+  await page.locator('#donationCurrency').selectOption('PKR');
+  await page.locator('#customAmount').fill('2500');
+  await page.locator('#donationCurrency').selectOption('USD');
+  await page.waitForFunction(() => document.getElementById('customAmount').value === '9.00');
+  assert.equal(await page.locator('#sumAmount').textContent(),'USD 9.00');checks++;
+  await page.locator('#donationCurrency').selectOption('PKR');
+  await page.waitForFunction(() => document.getElementById('customAmount').value === '2500.00');
+  assert.equal(await page.locator('input[name=amount]').inputValue(),'2500.00','PKR online amount synchronized');checks++;
+  assert.deepEqual(errors,[]);checks++;
+  const overflowing=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+  assert(overflowing<=2,`mobile overflow: ${overflowing}`);checks++;
+  const saved=JSON.parse(fs.readFileSync(cache,'utf8'));
+  try {
+   const expired={...saved,updated:Math.floor(Date.now()/1000)-172801,next:Math.floor(Date.now()/1000)-1,retry_after:Math.floor(Date.now()/1000)+600};
+   fs.writeFileSync(cache,JSON.stringify(expired));
+   await page.locator('#donationCurrency').selectOption('USD');
+   await page.waitForFunction(() => document.getElementById('rateStatus').textContent.includes('Conversion unavailable'));
+   assert.equal(await page.locator('#customAmount').inputValue(),'','failed conversion clears old-currency amount');checks++;
+   assert.equal(await page.locator('input[name=amount]').inputValue(),'','failed conversion clears submitted amount');checks++;
+  } finally {fs.writeFileSync(cache,JSON.stringify(saved));}
+  await page.route('**/donate/estimate',async route=>{await new Promise(resolve=>setTimeout(resolve,200));await route.continue();});
+  await page.locator('#donationCurrency').selectOption('PKR');
+  await page.locator('#customAmount').fill('2500');
+  await page.locator('#donationCurrency').selectOption('USD');
+  await page.locator('#donationCurrency').selectOption('PKR');
+  await page.waitForTimeout(350);
+  assert.equal(await page.locator('#donationCurrency').inputValue(),'PKR');checks++;
+  assert.equal(await page.locator('#donateSubmit').isDisabled(),false,'in-flight old quote cannot lock final currency');checks++;
+  assert.notEqual(await page.locator('#customAmount').inputValue(),'9.00','late USD quote cannot overwrite current PKR');checks++;
+  await page.close();
+  const noJs=await browser.newPage({javaScriptEnabled:false,viewport:{width:390,height:844}});
+  await noJs.goto(base+'/donate?currency=EUR');
+  assert.equal(await noJs.locator('#donationCurrency').isVisible(),true);checks++;
+  assert.equal(await noJs.locator('#donationCurrency').inputValue(),'EUR');checks++;
+  assert.equal(await noJs.locator('[data-online-method]:visible').count(),0);checks++;
+  await noJs.close();
+ } finally{await browser.close()}
+ console.log(`${checks} V3 Part 5 currency browser checks passed.`);
+})().catch(e=>{console.error(e);process.exitCode=1;});

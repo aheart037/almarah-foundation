@@ -1,0 +1,17 @@
+# Local credentials and generated runtime data must never be committed.
+.env
+.env.*
+!.env.example
+config.php
+storage/app/*
+!storage/app/.gitkeep
+storage/cache/*
+!storage/cache/.gitkeep
+storage/logs/*
+!storage/logs/.gitkeep
+storage/private/*
+!storage/private/.gitkeep
+storage/uploads/*
+!storage/uploads/.gitkeep
+node_modules/
+tests/.admin-*.html

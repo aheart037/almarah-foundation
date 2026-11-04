@@ -84,6 +84,24 @@ final class Migrator
                 throw new RuntimeException("Unable to read migration {$migration}.");
             }
 
+            if ($migration === '0016_v3_payment_history_constraints.sql') {
+                $orphans = $this->db->int('SELECT COUNT(*) FROM financial_adjustments fa LEFT JOIN payment_transactions pt ON pt.id=fa.payment_transaction_id WHERE fa.payment_transaction_id IS NOT NULL AND pt.id IS NULL');
+                if ($orphans > 0) {
+                    throw new RuntimeException('Migration 0016 blocked: ' . $orphans . ' historical adjustment(s) reference missing payment transactions. Preserve and reconcile them before retrying; no data was deleted.');
+                }
+                $mismatched = $this->db->int('SELECT COUNT(*) FROM financial_adjustments fa JOIN payment_transactions pt ON pt.id=fa.payment_transaction_id WHERE fa.payment_transaction_id IS NOT NULL AND fa.donation_id<>pt.donation_id');
+                if ($mismatched > 0) {
+                    throw new RuntimeException('Migration 0016 blocked: ' . $mismatched . ' historical adjustment(s) reference a payment for a different donation. Investigate without rewriting history.');
+                }
+            }
+
+            if ($migration === '0017_v3_reconciliation_links.sql') {
+                $invalid = $this->db->int('SELECT COUNT(*) FROM reconciliation_items ri LEFT JOIN donations d ON d.id=ri.donation_id LEFT JOIN payment_transactions pt ON pt.id=ri.payment_transaction_id LEFT JOIN users u ON u.id=ri.resolved_by WHERE (ri.donation_id IS NOT NULL AND d.id IS NULL) OR (ri.payment_transaction_id IS NOT NULL AND pt.id IS NULL) OR (ri.resolved_by IS NOT NULL AND u.id IS NULL) OR (pt.id IS NOT NULL AND ri.donation_id IS NOT NULL AND pt.donation_id<>ri.donation_id)');
+                if ($invalid > 0) {
+                    throw new RuntimeException('Migration 0017 blocked: ' . $invalid . ' reconciliation item(s) have orphan or mismatched references. Investigate without rewriting history.');
+                }
+            }
+
             $this->executeSql($sql);
 
             $this->db->insert('migrations', [
@@ -99,26 +117,13 @@ final class Migrator
     }
 
     /**
-     * MySQL supports multiple statements through PDO::exec; when a server
-     * rejects that, fall back to statement-by-statement execution.
+     * Execute statements exactly once. MySQL DDL commits implicitly: a failed
+     * multi-statement exec can already have applied earlier statements, so
+     * retrying the whole migration would replay destructive ALTERs.
      */
     private function executeSql(string $sql): void
     {
-        $sql = trim($sql);
-        if ($sql === '') {
-            return;
-        }
-
-        try {
-            $this->db->pdo()->exec($sql);
-            return;
-        } catch (\PDOException $e) {
-            $this->logger->warning('Bulk migration exec failed, retrying statement by statement', [
-                'reason' => $e->getMessage(),
-            ]);
-        }
-
-        foreach ($this->splitStatements($sql) as $statement) {
+        foreach ($this->splitStatements(trim($sql)) as $statement) {
             $this->db->pdo()->exec($statement);
         }
     }

@@ -24,6 +24,7 @@ $currency = (string) $donation['currency'];
   <form method="post" action="<?= e(base_url('admin/finance/donations/' . (int) $donation['id'] . '/adjust')) ?>" class="panel" novalidate>
     <?= csrf_field() ?>
     <h2>New adjustment</h2>
+    <?php if ($types === []): ?><p class="muted">No manual adjustments are permitted for this donation. Historical and verified payment records remain protected.</p><?php endif; ?>
     <p class="muted">Every adjustment is permanent, logged with your name, IP and reason, and visible in the audit log.</p>
     <?php if (error_for('form') !== ''): ?><div class="alert alert-error"><?= error_for('form') ?></div><?php endif; ?>
 
@@ -60,7 +61,7 @@ $currency = (string) $donation['currency'];
 
     <div class="field">
       <label for="reason">Reason<span class="req">*</span></label>
-      <textarea class="input" id="reason" name="reason" rows="3" required minlength="10" maxlength="1000" placeholder="Why is this change correct?"><?= old('reason') ?></textarea>
+      <textarea class="input" id="reason" name="reason" rows="3" required minlength="10" maxlength="500" placeholder="Why is this change correct?"><?= old('reason') ?></textarea>
     </div>
 
     <div class="field" data-period="mark_completed" hidden>
@@ -68,7 +69,7 @@ $currency = (string) $donation['currency'];
     </div>
 
     <div class="sr-actions">
-      <button class="btn btn-brand" type="submit">Apply adjustment</button>
+      <button class="btn btn-brand" type="submit" <?= $types === [] ? 'disabled' : '' ?>>Apply adjustment</button>
     </div>
   </form>
 

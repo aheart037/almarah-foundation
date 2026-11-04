@@ -1,0 +1,7 @@
+<div class="dash-head"><div><h1><?= $grant ? 'Edit grant' : 'Create grant' ?></h1><p class="sub">Enter only verified grant details. This register does not track awards, payments or beneficiaries.</p></div><a class="btn btn-light" href="<?= e(base_url('admin/grants')) ?>">Back to grants</a></div>
+<section class="panel"><form method="post" action="<?= e(base_url($grant ? 'admin/grants/'.(int)$grant['id'] : 'admin/grants')) ?>"><?= csrf_field() ?>
+<div class="field"><label for="reference">Unique reference</label><input class="input" id="reference" name="reference" required maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._-]{1,49}" value="<?= e((string)($grant['reference'] ?? '')) ?>"></div>
+<div class="field"><label for="title">Title</label><input class="input" id="title" name="title" required maxlength="200" value="<?= e((string)($grant['title'] ?? '')) ?>"></div>
+<div class="field"><label for="description">Description (optional)</label><textarea class="input" id="description" name="description" maxlength="10000" rows="5"><?= e((string)($grant['description'] ?? '')) ?></textarea></div>
+<div class="field"><label for="status">Status</label><select class="input" id="status" name="status"><?php foreach (['draft','active','closed'] as $status): ?><option value="<?= e($status) ?>" <?= ($grant['status'] ?? 'draft')===$status ? 'selected' : '' ?>><?= e(ucfirst($status)) ?></option><?php endforeach; ?></select></div>
+<button class="btn btn-brand" type="submit">Save grant</button></form></section>

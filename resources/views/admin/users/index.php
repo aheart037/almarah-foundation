@@ -15,6 +15,7 @@
     <h1>Users</h1>
     <p class="sub">Fundraisers, donors and staff accounts.</p>
   </div>
+  <?php if ($can('users.create') || $can('users.manage')): ?><a class="btn btn-brand" href="<?= e(base_url('admin/users/create')) ?>">Create user</a><?php endif; ?>
 </div>
 
 <div class="stat-cards">
@@ -36,7 +37,7 @@
   <div class="stat-card">
     <div class="k">Donors</div>
     <div class="v"><?= e(number_format(app(\App\Repositories\DonorRepository::class)->countAll())) ?></div>
-    <div class="d"><a href="<?= e(base_url('admin/donors')) ?>">See donor list</a></div>
+    <?php if ($can('donations.view')): ?><div class="d"><a href="<?= e(base_url('admin/donors')) ?>">See donor list</a></div><?php endif; ?>
   </div>
 </div>
 
@@ -56,7 +57,7 @@
     <div class="select-field">
       <select class="select-field" name="role" data-autosubmit aria-label="Role">
         <option value="">Any role</option>
-        <?php foreach (['super_admin', 'admin', 'fundraiser', 'donor'] as $role): ?>
+        <?php foreach (array_column(app(\App\Services\RbacService::class)->roles(), 'name') as $role): ?>
           <option value="<?= e($role) ?>" <?= $filters['role'] === $role ? 'selected' : '' ?>><?= e(str_replace('_', ' ', ucfirst($role))) ?></option>
         <?php endforeach; ?>
       </select>

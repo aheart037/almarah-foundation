@@ -17,9 +17,11 @@
     <h1>Donations</h1>
     <p class="sub">Every payment attempt, and what the bank said about it.</p>
   </div>
-  <div class="sr-actions">
-    <a class="btn btn-outline-brand" href="<?= e(base_url('admin/donations/export?' . http_build_query(array_filter(['q' => $filters['q'], 'status' => $filters['status'], 'gateway' => $filters['gateway'], 'purpose_id' => $filters['purpose_id'] ?? '', 'date_from' => $filters['date_from'], 'date_to' => $filters['date_to']])))) ?>">Export filtered CSV</a>
-  </div>
+  <?php if ($can('reports.view')): ?>
+    <div class="sr-actions">
+      <a class="btn btn-outline-brand" href="<?= e(base_url('admin/donations/export?' . http_build_query(array_filter($filters, static fn ($v) => $v !== '' && $v !== null && $v !== 0)))) ?>">Export filtered CSV</a>
+    </div>
+  <?php endif; ?>
 </div>
 
 <div class="stat-cards">
@@ -83,6 +85,13 @@
       <label class="sr-only" for="date_to">To</label>
       <input class="input" type="date" id="date_to" name="date_to" value="<?= e((string) $filters['date_to']) ?>">
     </div>
+    <?php foreach (['donor_name'=>'Donor name','phone'=>'Phone','email'=>'Email','amount_min'=>'Minimum amount','amount_max'=>'Maximum amount','receipt_number'=>'Receipt no.','transaction_id'=>'Transaction ID','recipient'=>'Recipient','referrer'=>'Referrer','staff_member'=>'Staff ID or email'] as $key=>$label): ?>
+      <label><?= e($label) ?><input class="input" name="<?= e($key) ?>" value="<?= e((string) ($filters[$key] ?? '')) ?>"></label>
+    <?php endforeach; ?>
+    <label>Payment method <select name="payment_method" class="select-field"><option value="">Any</option>
+    <?php foreach (['bank_transfer','online_transfer','cash','other','cheque','zelle','meezan','etisalat'] as $method): ?><option value="<?= e($method) ?>" <?= ($filters['payment_method'] ?? '') === $method ? 'selected' : '' ?>><?= e(ucwords(str_replace('_',' ',$method))) ?></option><?php endforeach; ?></select></label>
+    <label>Verification <select name="verification_status" class="select-field"><option value="">Any</option>
+    <?php foreach (['legacy','submitted','initial_review','verification_officer','finance_manager','rejected','verified'] as $stage): ?><option value="<?= e($stage) ?>" <?= ($filters['verification_status'] ?? '') === $stage ? 'selected' : '' ?>><?= e(ucwords(str_replace('_',' ',$stage))) ?></option><?php endforeach; ?></select></label>
     <button class="btn btn-brand" type="submit">Filter</button>
   </form>
 
@@ -98,24 +107,28 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>Reference</th><th>Date</th><th>Donor</th><th>Purpose</th><th>Method</th><th>Status</th><th class="num">Amount</th><th></th></tr>
+          <tr><th>Receipt / Reference</th><th>Transaction date</th><th>Donor / phone / email</th><th>Method / transaction ID</th><th>Verification</th><th>Recipient</th><th>Referrer</th><th>Staff</th><th>Status</th><th class="num">Amount</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <?php foreach ($donations as $donation): ?>
             <tr>
-              <td class="mono"><a href="<?= e(base_url('admin/donations/' . (string) $donation['id'])) ?>"><?= e((string) $donation['public_reference']) ?></a></td>
-              <td><?= e(dt((string) $donation['created_at'], 'j M Y H:i')) ?></td>
+              <td class="mono"><a href="<?= e(base_url('admin/donations/' . (string) $donation['id'])) ?>"><?= e((string) $donation['public_reference']) ?></a><br><small><?= e((string) ($donation['receipt_number'] ?? 'Not issued')) ?></small></td>
+              <td><?= e(dt((string) $donation['transaction_at'] ?: $donation['created_at'], 'j M Y H:i')) ?></td>
               <td class="wrap">
                 <?= e(!empty($donation['anonymous']) ? 'Anonymous' : (string) ($donation['donor_name'] ?? '—')) ?>
                 <?php if (empty($donation['anonymous']) && !empty($donation['donor_email'])): ?>
                   <div class="muted" style="font-size:12px"><?= e((string) $donation['donor_email']) ?></div>
                 <?php endif; ?>
+                <div><?= e((string) ($donation['donor_phone'] ?? '')) ?></div>
               </td>
-              <td class="wrap"><?= e((string) ($donation['purpose_name'] ?? $donation['fundraiser_title'] ?? 'General Fund')) ?><?= ($donation['donation_type'] ?? '') === 'monthly' ? ' <span class="badge badge-purple">monthly</span>' : '' ?></td>
               <td>
                 <?= e($donation['gateway_code'] ? ucfirst((string) $donation['gateway_code']) : ucwords(str_replace('_', ' ', (string) ($donation['source'] ?? 'offline')))) ?>
-                <div class="muted" style="font-size:12px"><?= e($donation['gateway_code'] ? ucfirst((string) ($donation['environment'] ?? '')) : (string) ($donation['bank_reference'] ?? '')) ?></div>
+                <div class="muted" style="font-size:12px"><?= e($donation['provider_transaction_id'] ?: ($donation['bank_reference'] ?? '')) ?></div>
               </td>
+              <td><?= e((string) ($donation['verification_status'] ?? 'legacy')) ?></td>
+              <td><?= e((string) ($donation['recipient_name'] ?: ($donation['acknowledgment_self'] ? ($donation['donor_name'] ?? '') : ''))) ?></td>
+              <td><?= e((string) ($donation['referrer_name'] ?? '')) ?></td>
+              <td><small>Created: <?= e((string) ($donation['created_by_email'] ?? 'Public')) ?><br>Verified: <?= e((string) ($donation['verified_by_email'] ?? '—')) ?></small></td>
               <td><span class="<?= e(status_badge_class((string) $donation['status'])) ?>"><?= e((string) $donation['status']) ?></span></td>
               <td class="num"><?= e(money((int) $donation['amount_minor'], (string) $donation['currency'])) ?></td>
               <td><a class="btn btn-light btn-sm" href="<?= e(base_url('admin/donations/' . (string) $donation['id'])) ?>">Open</a></td>
@@ -127,6 +140,7 @@
 
     <?php
     $query = ['q' => $filters['q'], 'status' => $filters['status'], 'gateway' => $filters['gateway'], 'date_from' => $filters['date_from'], 'date_to' => $filters['date_to'], 'purpose_id' => $filters['purpose_id'] ?? '', 'source' => $filters['source'] ?? ''];
+    $query = array_merge($query, array_intersect_key($filters, array_flip(['donor_name','phone','email','amount_min','amount_max','receipt_number','transaction_id','payment_method','verification_status','recipient','referrer','staff_member'])));
     require __DIR__ . '/../../partials/pagination.php';
     ?>
   <?php endif; ?>

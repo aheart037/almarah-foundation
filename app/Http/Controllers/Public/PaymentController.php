@@ -118,10 +118,9 @@ final class PaymentController extends Controller
 
         $donation = $reference !== '' ? $this->donationRecords->findByReference($reference) : null;
 
-        $retryUrl = Response::locationFor('/fundraisers');
-        if ($donation !== null && !empty($donation['fundraiser_slug'])) {
-            $retryUrl = Response::locationFor('/donate/' . rawurlencode((string) $donation['fundraiser_slug']));
-        }
+        // This main website's working retry form is /donate, not the
+        // fundraising subdomain's /fundraisers or /donate/{slug}.
+        $retryUrl = Response::locationFor('/donate');
 
         $titles = [
             'completed'  => 'Payment Successful',
@@ -142,7 +141,7 @@ final class PaymentController extends Controller
             'retryUrl'   => $retryUrl,
             'statusUrl'  => $reference !== ''
                 ? Response::locationFor('/donation/' . rawurlencode($reference))
-                : Response::locationFor('/fundraisers'),
+                : Response::locationFor('/donate'),
             'org'        => (array) Config::get('app.org', []),
         ]);
 

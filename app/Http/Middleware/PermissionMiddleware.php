@@ -36,7 +36,7 @@ final class PermissionMiddleware implements MiddlewareInterface
         if (!$this->auth->isStaff()) {
             throw new HttpException(403, 'You do not have permission to access that area.');
         }
-        if ($this->permission !== null && $this->permission !== '' && !$this->auth->can($this->permission)) {
+        if ($this->permission !== null && $this->permission !== '' && !$this->auth->canAny(explode('|', $this->permission))) {
             throw new HttpException(403, 'Your role does not include permission to do that (' . $this->permission . ').');
         }
         return $next($request);

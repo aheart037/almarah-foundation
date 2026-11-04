@@ -39,12 +39,10 @@ if ($donation === null) {
 $prDonation     = $donation ?? null;
 $prReference    = (string) ($donation['public_reference'] ?? '');
 $prTransactions = $transactions ?? [];
-$prStatusUrl    = $prReference !== '' ? base_url('donation/' . rawurlencode($prReference)) : base_url('fundraisers');
-$prRetryUrl     = !empty($donation['fundraiser_slug'])
-    ? base_url('donate/' . rawurlencode((string) $donation['fundraiser_slug']))
-    : base_url('fundraisers');
+$prStatusUrl    = $prReference !== '' ? base_url('donation/' . rawurlencode($prReference)) : base_url('donate');
+$prRetryUrl     = base_url('donate');
 $prNotice       = ($donation !== null && ($expected ?? null) !== null && $expected !== $status)
-    ? 'We checked this donation against our records rather than the page you landed on. This is its real, verified status.'
+    ? 'We checked this donation against our records rather than the page you landed on. This is its recorded status; verification is shown separately.'
     : '';
 
 require __DIR__ . '/../../partials/payment-result.php';

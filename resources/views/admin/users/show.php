@@ -56,10 +56,17 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
     </dl>
   </section>
 
-  <section class="panel">
+  <?php if (app(\App\Services\AuthService::class)->canAny(['users.edit','users.manage']) && (!app(\App\Services\RbacService::class)->isSuper($id) || $canManageRoles)): ?>
+  <section class="panel"><h2>Edit account</h2><form method="post" action="<?= e(base_url('admin/users/'.$id.'/edit')) ?>"><?= csrf_field() ?>
+  <?php foreach (['first_name'=>'First name','last_name'=>'Last name','email'=>'Email','phone'=>'Phone'] as $field=>$label): ?>
+  <div class="field"><label for="<?= e($field) ?>"><?= e($label) ?></label><input class="input" id="<?= e($field) ?>" name="<?= e($field) ?>" value="<?= e((string)($user[$field] ?? '')) ?>" maxlength="<?= $field==='email' ? '191' : ($field==='phone' ? '40' : '100') ?>" <?= $field==='phone' ? '' : 'required' ?> <?= $field==='email' ? 'type="email"' : '' ?>></div>
+  <?php endforeach; ?><button class="btn btn-brand" type="submit">Save details</button></form></section><?php endif; ?>
+
+  <?php if (app(\App\Services\AuthService::class)->canAny(['users.edit','users.manage'])): ?><section class="panel">
     <h2>Actions</h2>
     <p class="panel-sub">Passwords are never displayed or set from here — we email a reset link instead.</p>
 
+    <?php if (!app(\App\Services\RbacService::class)->isSuper($id) || $canManageRoles): ?>
     <div class="form-actions" style="flex-direction:column;align-items:stretch;gap:14px">
       <?php if (!empty($user['email_verified_at'])): ?>
         <p class="text-muted mb-0">Email address is already verified.</p>
@@ -95,6 +102,7 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
       <?php endif; ?>
     </div>
 
+    <?php endif; ?>
     <?php if ($canManageRoles): ?>
       <h3 class="mt-3" style="font-size:16px">Roles</h3>
       <form method="post" action="<?= e(base_url('admin/users/' . $id . '/roles')) ?>">
@@ -108,6 +116,11 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
                   echo match ($role) {
                       'super_admin' => 'Full access, including credentials and roles.',
                       'admin'       => 'Moderate fundraisers, donations and users.',
+                      'initial_reviewer', 'initial_review' => 'First-pass donation verification; cannot approve own submission.',
+                      'verification_officer' => 'Verify donation evidence at the second review stage.',
+                      'finance_manager' => 'Finance review, reconciliation and reports.',
+                      'content_manager' => 'Manage website content.',
+                      'volunteer_manager' => 'Manage volunteer applications.',
                       'fundraiser'  => 'Create and manage their own fundraisers.',
                       default       => 'Donor account and receipts.',
                   };
@@ -125,8 +138,17 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
         <p>Only a super administrator can change roles.</p>
       </div>
     <?php endif; ?>
-  </section>
+  </section><?php endif; ?>
 </div>
+
+<?php if ($assignedGrants !== null): ?>
+<section class="panel"><h2>Assigned grants</h2>
+<?php if ($assignedGrants===[]): ?><p>No grants assigned to this user.</p><?php endif; ?>
+<div class="table-wrap"><table class="data-table"><thead><tr><th>Grant</th><th>Assignment</th><th>Date</th><th>Responsibilities</th></tr></thead><tbody><?php foreach ($assignedGrants as $a): ?><tr><td><a href="<?= e(base_url('admin/grants/'.(int)$a['grant_id'])) ?>"><?= e($a['reference'].' · '.$a['title']) ?></a></td><td><?= e($a['status']) ?></td><td><?= e((string)$a['assigned_at']) ?> UTC</td><td><?= e((string)($a['responsibilities'] ?: '—')) ?></td></tr><?php endforeach; ?></tbody></table></div></section>
+<?php endif; ?>
+<?php if ($assignableGrants !== [] && (string)$user['status']==='active'): ?>
+<section class="panel"><h2>Assign multiple grants</h2><p class="panel-sub">Select one or several open grants for this user. Duplicate assignments are rejected.</p><form method="post" action="<?= e(base_url('admin/users/'.$id.'/grants')) ?>"><?= csrf_field() ?><div class="field"><label for="grant_ids">Grants</label><select class="input" id="grant_ids" name="grant_ids[]" multiple size="8" required><?php foreach ($assignableGrants as $grant): if ($grant['status']==='closed') continue; ?><option value="<?= (int)$grant['id'] ?>"><?= e($grant['reference'].' · '.$grant['title']) ?></option><?php endforeach; ?></select></div><div class="field"><label for="grant_responsibilities">Responsibilities (optional)</label><textarea class="input" id="grant_responsibilities" name="responsibilities" maxlength="1000" rows="2"></textarea></div><div class="field"><label for="grant_notes">Notes (optional)</label><textarea class="input" id="grant_notes" name="notes" maxlength="10000" rows="2"></textarea></div><button class="btn btn-brand" type="submit">Assign grants</button></form></section>
+<?php endif; ?>
 
 <?php if ($fundraisers !== []): ?>
   <section class="panel">
@@ -141,7 +163,7 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
               <td><span class="<?= e(status_badge_class((string) $row['status'])) ?>"><?= e(str_replace('_', ' ', (string) $row['status'])) ?></span></td>
               <td class="num"><?= e(money_short((int) $row['raised_minor'])) ?></td>
               <td class="num"><?= e(money_short((int) $row['goal_minor'])) ?></td>
-              <td><a class="btn btn-light btn-sm" href="<?= e(base_url('admin/fundraisers/' . (string) $row['id'])) ?>">Open</a></td>
+              <td><?php if ($can('reports.view')): ?><a class="btn btn-light btn-sm" href="<?= e(base_url('admin/reports/fundraisers?q=' . rawurlencode((string) $row['title']))) ?>">Find in report</a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

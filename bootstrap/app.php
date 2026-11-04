@@ -30,6 +30,8 @@ use App\Services\AuditService;
 use App\Services\EmailTemplateService;
 use App\Services\SettingsService;
 use App\Services\UploadService;
+use App\Services\GeoCurrencyService;
+use App\Services\DonationExchangeRates;
 
 $basePath = dirname(__DIR__);
 
@@ -82,6 +84,8 @@ $app->bind(Session::class, static fn (): Session => new Session(Config::array('s
 $app->bind(Csrf::class, static fn (App $c): Csrf => new Csrf($c->make(Session::class)));
 $app->bind(View::class, static fn (): View => new View($basePath));
 $app->bind(RateLimiter::class, static fn (App $c): RateLimiter => new RateLimiter($c->make(Database::class)));
+$app->bind(GeoCurrencyService::class, static fn (): GeoCurrencyService => new GeoCurrencyService());
+$app->bind(DonationExchangeRates::class, static fn (): DonationExchangeRates => new DonationExchangeRates());
 
 // The request object is a singleton for the current request lifecycle.
 if (PHP_SAPI !== 'cli') {

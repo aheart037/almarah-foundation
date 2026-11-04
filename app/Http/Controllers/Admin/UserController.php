@@ -16,6 +16,9 @@ use App\Repositories\DonorRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuditService;
 use App\Services\AuthService;
+use App\Services\RbacService;
+use App\Services\GrantService;
+use DomainException;
 use App\Mail\Mailer;
 
 /**
@@ -24,8 +27,6 @@ use App\Mail\Mailer;
  */
 final class UserController extends Controller
 {
-    private const ASSIGNABLE_ROLES = ['super_admin', 'admin', 'finance_manager', 'content_manager', 'volunteer_manager', 'donor'];
-
     public function __construct(
         View $view,
         Session $session,
@@ -35,7 +36,8 @@ final class UserController extends Controller
         private DonorRepository $donors,
         private AuditService $audit,
         private Mailer $mailer,
-        private Database $db
+        private Database $db,
+        private RbacService $rbac
     ) {
         parent::__construct($view, $session, $csrf, $auth);
     }
@@ -91,11 +93,13 @@ final class UserController extends Controller
             'pageTitle'      => (string) $user['email'],
             'user'           => $user,
             'roles'          => $this->users->rolesFor($userId),
-            'availableRoles' => self::ASSIGNABLE_ROLES,
+            'availableRoles' => array_column($this->rbac->roles(), 'name'),
             'fundraisers'    => app(\App\Repositories\FundraiserRepository::class)->forOwner($userId),
             'donations'      => $donations,
             'auditTrail'     => $this->audit->forUser($userId, 25),
             'isSelf'         => $userId === (int) $this->auth->id(),
+            'assignedGrants' => $this->auth->can('grants.view') && $this->auth->canAny(['grant_assignments.view','grant_assignments.manage']) ? app(GrantService::class)->forUser($userId) : null,
+            'assignableGrants' => $this->auth->can('grants.view') && $this->auth->canAny(['grant_assignments.create','grant_assignments.manage']) ? app(GrantService::class)->all() : [],
         ], 'layouts/admin');
     }
 
@@ -117,8 +121,8 @@ final class UserController extends Controller
 
         $reason = (string) $request->input('reason');
 
-        $this->users->update($userId, ['status' => 'suspended']);
-        $this->audit->log('user.suspended', 'user', (string) $userId, ['reason' => $reason], (int) $this->auth->id());
+        try { $this->rbac->changeStatus($userId, 'suspended', (int)$this->auth->id(), $reason); }
+        catch (DomainException $e) { $this->flashError($e->getMessage()); return $this->redirect('/admin/users/' . $userId); }
 
         $this->mailer->accountSuspended((string) $user['email'], (string) $user['first_name'], $reason);
 
@@ -131,8 +135,8 @@ final class UserController extends Controller
         $user = $this->requireUser((int) $request->routeParam('id', 0));
         $userId = (int) $user['id'];
 
-        $this->users->update($userId, ['status' => 'active']);
-        $this->audit->log('user.reactivated', 'user', (string) $userId, [], (int) $this->auth->id());
+        try { $this->rbac->changeStatus($userId, 'active', (int)$this->auth->id()); }
+        catch (DomainException $e) { $this->flashError($e->getMessage()); return $this->redirect('/admin/users/' . $userId); }
 
         $this->mailer->accountReactivated((string) $user['email'], (string) $user['first_name']);
 
@@ -144,6 +148,7 @@ final class UserController extends Controller
     {
         $user = $this->requireUser((int) $request->routeParam('id', 0));
 
+        $this->protectSuper($user);
         $this->users->markEmailVerified((int) $user['id']);
         $this->audit->log('user.email_verified_by_admin', 'user', (string) $user['id'], [], (int) $this->auth->id());
 
@@ -155,12 +160,13 @@ final class UserController extends Controller
     {
         $user = $this->requireUser((int) $request->routeParam('id', 0));
 
+        $this->protectSuper($user);
         // Send the standard reset email rather than setting a password we
         // would then know.
         $this->auth->sendPasswordReset((string) $user['email']);
         $this->audit->log('user.password_reset_forced', 'user', (string) $user['id'], [], (int) $this->auth->id());
 
-        $this->flashSuccess('A password reset link has been emailed to ' . (string) $user['email'] . '.');
+        $this->flashSuccess('Password reset requested for ' . (string) $user['email'] . '.');
         return $this->redirect('/admin/users/' . $user['id']);
     }
 
@@ -170,48 +176,80 @@ final class UserController extends Controller
         $userId = (int) $user['id'];
 
         $submitted = $request->input('roles', []);
-        if (!is_array($submitted)) {
-            $submitted = [$submitted];
+        if (!is_array($submitted) || array_filter($submitted, static fn ($r): bool => !is_string($r))) {
+            $this->flashError('Invalid role selection.');
+            return $this->redirect('/admin/users/' . $userId);
         }
-
-        $requested = array_values(array_intersect(
-            array_map(static fn (mixed $role): string => (string) $role, $submitted),
-            self::ASSIGNABLE_ROLES
-        ));
-
-        $current = $this->users->rolesFor($userId);
-        $currentNames = array_map(static fn (array $role): string => (string) $role['name'], $current);
-
-        // Guard the last super administrator.
-        if (in_array('super_admin', $currentNames, true) && !in_array('super_admin', $requested, true)) {
-            $remaining = $this->db->int(
-                "SELECT COUNT(DISTINCT ur.user_id) FROM user_roles ur
-                 JOIN roles r ON r.id = ur.role_id
-                 WHERE r.name = 'super_admin' AND ur.user_id <> :uid",
-                ['uid' => $userId]
-            );
-
-            if ($remaining < 1) {
-                $this->flashError('This is the last super administrator — promote somebody else first.');
-                return $this->redirect('/admin/users/' . $userId);
-            }
-        }
-
-        foreach (array_diff($requested, $currentNames) as $role) {
-            $this->users->assignRole($userId, $role);
-        }
-
-        foreach (array_diff($currentNames, $requested) as $role) {
-            $this->users->removeRole($userId, $role);
-        }
-
-        $this->audit->log('user.roles_updated', 'user', (string) $userId, [
-            'from' => $currentNames,
-            'to'   => $requested,
-        ], (int) $this->auth->id());
+        try { $this->rbac->assignRoles($userId, $submitted, (int)$this->auth->id()); }
+        catch (DomainException $e) { $this->flashError($e->getMessage()); return $this->redirect('/admin/users/' . $userId); }
 
         $this->flashSuccess('Roles updated. The change applies the next time the user loads a page.');
         return $this->redirect('/admin/users/' . $userId);
+    }
+
+    public function createForm(Request $request): Response
+    {
+        return $this->render('admin/users/create', ['pageTitle'=>'Create user'], 'layouts/admin');
+    }
+
+    public function create(Request $request): Response
+    {
+        $first = trim((string)$request->input('first_name',''));
+        $last = trim((string)$request->input('last_name',''));
+        $email = mb_strtolower(trim((string)$request->input('email','')));
+        if ($first === '' || mb_strlen($first)>100 || $last === '' || mb_strlen($last)>100 || !filter_var($email,FILTER_VALIDATE_EMAIL) || mb_strlen($email)>191) {
+            $this->flashError('Enter valid names and an email address.');
+            return $this->redirect('/admin/users/create');
+        }
+        if ($this->users->findByEmail($email) !== null) {
+            $this->flashError('This email address is already in use.');
+            return $this->redirect('/admin/users/create');
+        }
+        try {
+            $id = $this->db->transaction(function () use ($first,$last,$email): int {
+                $id = $this->users->create(['first_name'=>$first,'last_name'=>$last,'email'=>$email,
+                    'password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT), 'status'=>'active']);
+                $this->audit->logRequired('user.created','user',$id,['email_hash'=>hash('sha256',$email)],(int)$this->auth->id());
+                return $id;
+            });
+        } catch (\PDOException $e) {
+            $this->flashError('User could not be created; check that this email is available.');
+            return $this->redirect('/admin/users/create');
+        }
+        $sent = $this->auth->sendPasswordReset($email);
+        $this->flashSuccess($sent ? 'User created. Password setup requested; check the email queue before sharing access. Assign roles on the user page.' : 'User created, but the password setup email could not be sent. Retry from the user page.');
+        return $this->redirect('/admin/users/'.$id);
+    }
+
+    public function edit(Request $request): Response
+    {
+        $user = $this->requireUser((int)$request->routeParam('id',0));
+        $this->protectSuper($user);
+        $first = trim((string)$request->input('first_name',''));
+        $last = trim((string)$request->input('last_name',''));
+        $phone = trim((string)$request->input('phone',''));
+        $email = mb_strtolower(trim((string)$request->input('email','')));
+        if ($first==='' || mb_strlen($first)>100 || $last==='' || mb_strlen($last)>100 || mb_strlen($phone)>40 || !filter_var($email,FILTER_VALIDATE_EMAIL) || mb_strlen($email)>191) {
+            $this->flashError('Enter valid names, phone and email.');
+            return $this->redirect('/admin/users/'.$user['id']);
+        }
+        try {
+            $this->db->transaction(function () use ($user,$first,$last,$phone,$email): void {
+                $this->db->selectOne("SELECT id FROM roles WHERE name='super_admin' FOR UPDATE");
+                if ($this->rbac->isSuper((int)$user['id']) && !$this->auth->isSuperAdmin()) { abort(403, 'Only Super Admin can edit a Super Admin.'); }
+                $this->users->update((int)$user['id'],['first_name'=>$first,'last_name'=>$last,'phone'=>$phone ?: null,'email'=>$email]);
+                $this->audit->logRequired('user.updated','user',$user['id'],['previous_email_hash'=>hash('sha256',(string)$user['email']),'email_hash'=>hash('sha256',$email)],(int)$this->auth->id());
+            });
+            $this->flashSuccess('User details saved.');
+        } catch (\PDOException $e) { $this->flashError('User could not be saved; the email may already be in use.'); }
+        return $this->redirect('/admin/users/'.$user['id']);
+    }
+
+    private function protectSuper(array $user): void
+    {
+        if ($this->rbac->isSuper((int)$user['id']) && !$this->auth->isSuperAdmin()) {
+            abort(403, 'Only Super Admin can change a Super Admin account.');
+        }
     }
 
     public function donors(Request $request): Response

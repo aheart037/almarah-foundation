@@ -36,6 +36,7 @@ final class FinanceService
 
     public const OFFLINE_SOURCES = [
         'bank_transfer' => 'Bank transfer',
+        'online_transfer' => 'Online transfer',
         'cash'          => 'Cash',
         'cheque'        => 'Cheque / pay order',
         'zelle'         => 'Zelle (USA)',
@@ -61,69 +62,35 @@ final class FinanceService
     ) {
     }
 
+    private function requireFinanceActor(int $actorId): void
+    {
+        $permitted=$this->db->int("SELECT COUNT(*) FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id LEFT JOIN role_permissions rp ON rp.role_id=r.id LEFT JOIN permissions p ON p.id=rp.permission_id WHERE u.id=:id AND u.status='active' AND u.deleted_at IS NULL AND (r.name='super_admin' OR p.name='finance.manage')",['id'=>$actorId]);
+        if ($permitted===0) { throw new InvalidArgumentException('Only active finance-authorized staff may modify financial records.'); }
+    }
+
     // ------------------------------------------------------------ summaries
 
     /** Totals for a calendar month grouped by purpose and by method. */
     public function monthlySummary(string $month): array
     {
-        [$start, $end] = $this->monthBounds($month);
-        $params = ['from' => $start, 'to' => $end];
-
-        $byPurpose = $this->db->select(
-            "SELECT COALESCE(dp.name, 'General Fund') AS label, COUNT(*) AS n, SUM(d.amount_minor) AS total
-             FROM donations d LEFT JOIN donation_purposes dp ON dp.id = d.purpose_id
-             WHERE d.status = 'completed' AND COALESCE(d.completed_at, d.created_at) BETWEEN :from AND :to
-             GROUP BY label ORDER BY total DESC",
-            $params
-        );
-
-        $byMethod = $this->db->select(
-            "SELECT COALESCE(g.name, d.source) AS label, COUNT(*) AS n, SUM(d.amount_minor) AS total
-             FROM donations d LEFT JOIN gateways g ON g.id = d.gateway_id
-             WHERE d.status = 'completed' AND COALESCE(d.completed_at, d.created_at) BETWEEN :from AND :to
-             GROUP BY label ORDER BY total DESC",
-            $params
-        );
-
-        $byStatus = $this->db->select(
-            "SELECT d.status, COUNT(*) AS n, SUM(d.amount_minor) AS total
-             FROM donations d WHERE d.created_at BETWEEN :from AND :to GROUP BY d.status",
-            $params
-        );
-
-        $completed = 0;
-        $count = 0;
-        foreach ($byStatus as $row) {
-            if ($row['status'] === 'completed') {
-                $completed = (int) $row['total'];
-                $count = (int) $row['n'];
-            }
-        }
-
-        return [
-            'month'      => $month,
-            'start'      => $start,
-            'end'        => $end,
-            'completed'  => $completed,
-            'count'      => $count,
-            'by_purpose' => $byPurpose,
-            'by_method'  => $byMethod,
-            'by_status'  => $byStatus,
-        ];
+        [$start,$end]=$this->monthBounds($month);
+        $params=['from'=>$start,'to'=>$end];
+        // Only independently verified PKR gifts are shown as confirmed totals.
+        $confirmed="d.status='completed' AND d.verification_status='verified'";
+        $byPurpose=$this->db->select("SELECT COALESCE(dp.name,'General Fund') AS label, COUNT(*) AS n, SUM(d.amount_minor) AS total FROM donations d LEFT JOIN donation_purposes dp ON dp.id=d.purpose_id WHERE {$confirmed} AND d.currency='PKR' AND COALESCE(d.completed_at,d.created_at) BETWEEN :from AND :to GROUP BY label ORDER BY total DESC",$params);
+        $byMethod=$this->db->select("SELECT COALESCE(g.name,d.source) AS label, COUNT(*) AS n, SUM(d.amount_minor) AS total FROM donations d LEFT JOIN gateways g ON g.id=d.gateway_id WHERE {$confirmed} AND d.currency='PKR' AND COALESCE(d.completed_at,d.created_at) BETWEEN :from AND :to GROUP BY label ORDER BY total DESC",$params);
+        $byCurrency=$this->db->select("SELECT d.currency,COUNT(*) AS n,SUM(d.amount_minor) AS total FROM donations d WHERE {$confirmed} AND COALESCE(d.completed_at,d.created_at) BETWEEN :from AND :to GROUP BY d.currency ORDER BY d.currency",$params);
+        $byStatus=$this->db->select("SELECT d.status,d.currency,COUNT(*) AS n,SUM(d.amount_minor) AS total FROM donations d WHERE d.created_at BETWEEN :from AND :to GROUP BY d.status,d.currency ORDER BY d.status,d.currency",$params);
+        $pkr=null;
+        foreach ($byCurrency as $row) { if ($row['currency']==='PKR') { $pkr=$row; break; } }
+        return ['month'=>$month,'start'=>$start,'end'=>$end,'completed'=>(int)($pkr['total'] ?? 0),'count'=>(int)($pkr['n'] ?? 0),
+            'by_purpose'=>$byPurpose,'by_method'=>$byMethod,'by_currency'=>$byCurrency,'by_status'=>$byStatus];
     }
 
-    /** @return array<int,array<string,mixed>> last 12 months of completed totals */
+    /** Last 12 months of independently verified PKR totals. */
     public function monthlyTrend(int $months = 12): array
     {
-        return $this->db->select(
-            "SELECT DATE_FORMAT(COALESCE(completed_at, created_at), '%Y-%m') AS ym,
-                    COUNT(*) AS n, SUM(amount_minor) AS total
-             FROM donations
-             WHERE status = 'completed'
-               AND COALESCE(completed_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL :m MONTH)
-             GROUP BY ym ORDER BY ym",
-            ['m' => $months]
-        );
+        return $this->db->select("SELECT DATE_FORMAT(COALESCE(completed_at,created_at),'%Y-%m') AS ym,COUNT(*) AS n,SUM(amount_minor) AS total FROM donations WHERE status='completed' AND verification_status='verified' AND currency='PKR' AND COALESCE(completed_at,created_at)>=DATE_SUB(CURDATE(),INTERVAL :m MONTH) GROUP BY ym ORDER BY ym",['m'=>$months]);
     }
 
     public function stalePendingCount(): int
@@ -160,11 +127,11 @@ final class FinanceService
         $params = ['from' => $from, 'to' => $to] + ($gatewayId ? ['gw' => $gatewayId] : []);
 
         $stats = $this->db->selectOne(
-            "SELECT COUNT(*) AS donations_count, COALESCE(SUM(d.amount_minor),0) AS donations_minor,
-                    SUM(d.status = 'completed') AS verified_count,
-                    COALESCE(SUM(CASE WHEN d.status = 'completed' THEN d.amount_minor END),0) AS verified_minor,
-                    SUM(d.status IN ('pending','processing')) AS pending_count,
-                    COALESCE(SUM(CASE WHEN d.status IN ('pending','processing') THEN d.amount_minor END),0) AS pending_minor,
+            "SELECT COUNT(*) AS donations_count, COALESCE(SUM(CASE WHEN d.currency='PKR' THEN d.amount_minor END),0) AS donations_minor,
+                    SUM(d.status='completed' AND d.verification_status='verified' AND d.currency='PKR') AS verified_count,
+                    COALESCE(SUM(CASE WHEN d.status='completed' AND d.verification_status='verified' AND d.currency='PKR' THEN d.amount_minor END),0) AS verified_minor,
+                    SUM(d.status IN ('pending','processing') AND d.currency='PKR') AS pending_count,
+                    COALESCE(SUM(CASE WHEN d.status IN ('pending','processing') AND d.currency='PKR' THEN d.amount_minor END),0) AS pending_minor,
                     SUM(d.status IN ('failed','cancelled','abandoned')) AS failed_count
              FROM donations d WHERE d.created_at BETWEEN :from AND :to{$gw}",
             $params
@@ -311,21 +278,20 @@ final class FinanceService
 
     public function resolveItem(int $itemId, string $note, int $actorId): bool
     {
-        $item = $this->db->selectOne('SELECT * FROM reconciliation_items WHERE id = :id', ['id' => $itemId]);
-        if ($item === null || $item['resolved_at'] !== null) {
-            return false;
-        }
-        $this->db->update('reconciliation_items', [
-            'resolved_at'     => gmdate('Y-m-d H:i:s'),
-            'resolved_by'     => $actorId,
-            'resolution_note' => $note,
-        ], 'id = :id', ['id' => $itemId]);
-
-        $this->audit->log('finance.reconciliation.resolve', 'donation', (int) $item['donation_id'], [
-            'item' => $itemId, 'issue' => $item['issue'], 'note' => $note,
-        ], $actorId);
-
-        return true;
+        $note=trim($note);
+        if (mb_strlen($note)<5 || mb_strlen($note)>500) { throw new InvalidArgumentException('Provide a resolution note of 5–500 characters.'); }
+        return $this->db->transaction(function () use ($itemId,$note,$actorId): bool {
+            $this->requireFinanceActor($actorId);
+            $item=$this->db->selectOne('SELECT * FROM reconciliation_items WHERE id=:id FOR UPDATE',['id'=>$itemId]);
+            if ($item===null || $item['resolved_at']!==null) { return false; }
+            $this->db->update('reconciliation_items',[
+                'resolved_at'=>gmdate('Y-m-d H:i:s'),'resolved_by'=>$actorId,'resolution_note'=>$note,
+            ],'id=:id',['id'=>$itemId]);
+            $this->audit->logRequired('finance.reconciliation.resolve','donation',(int)$item['donation_id'],[
+                'item'=>$itemId,'issue'=>$item['issue'],'note'=>$note,
+            ],$actorId);
+            return true;
+        });
     }
 
     // ---------------------------------------------------------- adjustments
@@ -339,15 +305,27 @@ final class FinanceService
         if (!isset(self::ADJUSTMENT_TYPES[$type])) {
             throw new InvalidArgumentException('Unknown adjustment type.');
         }
+        $result = $this->db->transaction(function () use ($donationId,$type,$data,$actorId): array {
+        $this->db->selectOne('SELECT id FROM donations WHERE id=:id FOR UPDATE',['id'=>$donationId]);
+        $this->requireFinanceActor($actorId);
         $donation = $this->donations->find($donationId);
         if ($donation === null) {
             throw new InvalidArgumentException('Donation not found.');
         }
         $reason = trim((string) ($data['reason'] ?? ''));
-        if (strlen($reason) < 10) {
+        if (mb_strlen($reason) < 10 || mb_strlen($reason) > 500) {
             throw new InvalidArgumentException('Please give a reason of at least 10 characters.');
         }
 
+        $evidence=trim((string)($data['evidence_reference'] ?? ''));
+        if (mb_strlen($evidence)>160) { throw new InvalidArgumentException('Evidence reference is too long.'); }
+        $linkedId=(int)($data['payment_transaction_id'] ?? 0);
+        if ($linkedId>0 && $this->db->int('SELECT COUNT(*) FROM payment_transactions WHERE id=:t AND donation_id=:d',['t'=>$linkedId,'d'=>$donationId])===0) {
+            throw new InvalidArgumentException('The selected payment transaction does not belong to this donation.');
+        }
+        if (in_array($type,['refund_recorded','amount_correction'],true) && $evidence==='') {
+            throw new InvalidArgumentException('An evidence reference is required for a refund or amount correction.');
+        }
         $old = (string) $donation['status'];
         $oldAmount = (int) $donation['amount_minor'];
         $new = $old;
@@ -356,6 +334,9 @@ final class FinanceService
 
         switch ($type) {
             case 'mark_completed':
+                if (($donation['verification_status'] ?? 'legacy') !== 'verified' || $donation['gateway_id'] !== null) {
+                    throw new InvalidArgumentException('New donations must pass independent staged verification; manual completion is prohibited.');
+                }
                 if ($old === 'completed') {
                     throw new InvalidArgumentException('This donation is already completed.');
                 }
@@ -368,6 +349,7 @@ final class FinanceService
                 break;
 
             case 'mark_failed':
+                if ($donation['gateway_id'] !== null) { throw new InvalidArgumentException('Online payment status must be verified with the provider.'); }
                 if (in_array($old, ['completed', 'refunded'], true)) {
                     throw new InvalidArgumentException('Completed donations cannot be marked failed — record a refund instead.');
                 }
@@ -376,17 +358,25 @@ final class FinanceService
                 break;
 
             case 'amount_correction':
+                if ($donation['gateway_id'] !== null) { throw new InvalidArgumentException('Gateway payment amounts cannot be manually changed.'); }
+                if (in_array($old, ['completed','refunded'], true) || ($donation['verification_status'] ?? 'legacy') === 'legacy' || ($donation['verification_status'] ?? '') === 'verified') {
+                    throw new InvalidArgumentException('Historical, completed and verified amounts cannot be edited; use an independently reviewed correction.');
+                }
                 $newAmount = (int) ($data['new_amount_minor'] ?? 0);
-                if ($newAmount < 100 || $newAmount === $oldAmount) {
+                if ($newAmount < 100 || $newAmount > (int) \App\Core\Config::get('app.donations.max_minor', 500000000) || $newAmount === $oldAmount) {
                     throw new InvalidArgumentException('Enter a different, positive amount.');
                 }
-                $this->db->update('donations', ['amount_minor' => $newAmount], 'id = :id', ['id' => $donationId]);
+                $this->db->update('donations', ['amount_minor' => $newAmount, 'verification_status' => ($donation['verification_status'] ?? 'legacy') === 'legacy' ? 'legacy' : 'submitted'], 'id = :id', ['id' => $donationId]);
+                if (($donation['verification_status'] ?? 'legacy') !== 'legacy') {
+                    $this->db->insert('donation_review_events', ['donation_id' => $donationId, 'actor_user_id' => $actorId, 'stage_key' => 'correction', 'decision' => 'reset', 'comment' => mb_substr($reason, 0, 1000)]);
+                }
                 break;
 
             case 'refund_recorded':
                 if ($old !== 'completed') {
                     throw new InvalidArgumentException('Only completed donations can be refunded.');
                 }
+                if ($donation['gateway_id'] !== null) { throw new InvalidArgumentException('Online refunds require verified provider confirmation.'); }
                 $new = 'refunded';
                 $this->donations->updateStatus($donationId, 'refunded');
                 break;
@@ -401,21 +391,22 @@ final class FinanceService
             'old_amount_minor'       => $oldAmount,
             'new_amount_minor'       => $newAmount,
             'reason'                 => $reason,
-            'evidence_reference'     => trim((string) ($data['evidence_reference'] ?? '')) ?: null,
+            'evidence_reference'     => $evidence ?: null,
             'actor_user_id'          => $actorId,
             'ip_address'             => $_SERVER['REMOTE_ADDR'] ?? null,
         ]);
 
-        $this->audit->log('finance.adjustment.' . $type, 'donation', $donationId, [
+        $this->audit->logRequired('finance.adjustment.' . $type, 'donation', $donationId, [
             'adjustment_id' => $adjustmentId, 'from' => $old, 'to' => $new,
             'old_amount' => $oldAmount, 'new_amount' => $newAmount, 'evidence' => $data['evidence_reference'] ?? null,
         ], $actorId);
 
+        return ['id' => $adjustmentId, 'from' => $old, 'to' => $new];
+        });
         if ($type === 'mark_completed' && !empty($data['send_receipt'])) {
             $this->sendReceipt($donationId);
         }
-
-        return ['id' => $adjustmentId, 'from' => $old, 'to' => $new];
+        return $result;
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -447,81 +438,8 @@ final class FinanceService
      */
     public function recordOffline(array $in, int $actorId): int
     {
-        $source = (string) ($in['source'] ?? 'bank_transfer');
-        if (!isset(self::OFFLINE_SOURCES[$source])) {
-            throw new InvalidArgumentException('Unknown source.');
-        }
-        $amountMinor = (int) round(((float) ($in['amount'] ?? 0)) * 100);
-        if ($amountMinor < 100) {
-            throw new InvalidArgumentException('Amount must be at least 1.00.');
-        }
-        $currency = strtoupper(trim((string) ($in['currency'] ?? 'PKR')));
-        if (!preg_match('/^[A-Z]{3}$/', $currency)) {
-            throw new InvalidArgumentException('Currency must be a 3-letter code.');
-        }
-        $name = trim((string) ($in['donor_name'] ?? ''));
-        $email = strtolower(trim((string) ($in['donor_email'] ?? '')));
-        $anonymous = !empty($in['anonymous']);
-        if ($name === '') {
-            $name = $anonymous ? 'Anonymous donor' : '';
-        }
-        if ($name === '') {
-            throw new InvalidArgumentException('Donor name is required (tick anonymous if unknown).');
-        }
-        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            throw new InvalidArgumentException('Donor email is not valid.');
-        }
-        $receivedAt = trim((string) ($in['received_at'] ?? ''));
-        $receivedAt = $receivedAt !== '' ? $receivedAt . ' 12:00:00' : gmdate('Y-m-d H:i:s');
-        if (strtotime($receivedAt) === false) {
-            throw new InvalidArgumentException('Received date is not valid.');
-        }
-
-        $donorId = null;
-        if ($email !== '') {
-            $donorId = $this->donors->findOrCreate($name, $email, trim((string) ($in['donor_phone'] ?? '')) ?: null);
-        } elseif (!$anonymous) {
-            $donorId = $this->db->insert('donors', [
-                'name'  => $name,
-                'email' => 'offline+' . Str::randomHex(6) . '@almarah.local',
-                'phone' => trim((string) ($in['donor_phone'] ?? '')) ?: null,
-            ]);
-        }
-
-        $purposeId = (int) ($in['purpose_id'] ?? 0) ?: null;
-        if ($purposeId && $this->db->selectOne('SELECT id FROM donation_purposes WHERE id = :id', ['id' => $purposeId]) === null) {
-            throw new InvalidArgumentException('Unknown purpose.');
-        }
-
-        $donationId = $this->donations->create([
-            'public_reference' => Str::publicReference('ALM'),
-            'donor_id'         => $donorId,
-            'purpose_id'       => $purposeId,
-            'donation_type'    => ($in['donation_type'] ?? '') === 'monthly' ? 'monthly' : 'one_time',
-            'source'           => $source,
-            'gateway_id'       => null,
-            'bank_reference'   => trim((string) ($in['bank_reference'] ?? '')) ?: null,
-            'recorded_by'      => $actorId,
-            'amount_minor'     => $amountMinor,
-            'currency'         => $currency,
-            'donor_message'    => trim((string) ($in['note'] ?? '')) ?: null,
-            'anonymous'        => $anonymous,
-            'status'           => 'completed',
-        ]);
-
-        $this->db->update('donations', ['completed_at' => $receivedAt, 'created_at' => $receivedAt], 'id = :id', ['id' => $donationId]);
-        $this->assignReceiptNumber($donationId);
-
-        $this->audit->log('finance.offline_donation.create', 'donation', $donationId, [
-            'source' => $source, 'amount_minor' => $amountMinor, 'currency' => $currency,
-            'bank_reference' => $in['bank_reference'] ?? null,
-        ], $actorId);
-
-        if ($email !== '' && !empty($in['send_receipt'])) {
-            $this->sendReceipt($donationId);
-        }
-
-        return $donationId;
+        // Keep the existing finance API, but never mark unreviewed gifts completed.
+        return app(DonationReviewService::class)->submit($in, null, $actorId)['id'];
     }
 
     // ------------------------------------------------------------ receipts
@@ -533,6 +451,15 @@ final class FinanceService
         if ($donation !== null && !empty($donation['receipt_number'])) {
             return (string) $donation['receipt_number'];
         }
+        if ($donation === null || !in_array($donation['verification_status'] ?? 'legacy', ['verified', 'legacy'], true) || $donation['status'] !== 'completed') {
+            throw new InvalidArgumentException('An unverified donation cannot receive an official receipt.');
+        }
+        // New references are unique by database constraint; no COUNT(*) race.
+        if (($donation['verification_status'] ?? 'legacy') === 'verified') {
+            $number = 'R-' . $donation['public_reference'];
+            $this->db->update('donations', ['receipt_number' => $number, 'receipt_generated_at' => gmdate('Y-m-d H:i:s')], 'id = :id AND receipt_number IS NULL', ['id' => $donationId]);
+            return (string) $this->donations->find($donationId)['receipt_number'];
+        }
         $year = gmdate('Y');
         $seq = $this->db->int(
             "SELECT COUNT(*) FROM donations WHERE receipt_number LIKE :p",
@@ -543,7 +470,7 @@ final class FinanceService
         return $number;
     }
 
-    public function sendReceipt(int $donationId): bool
+    public function sendReceipt(int $donationId, bool $resend = false): bool
     {
         $donation = $this->db->selectOne(
             'SELECT d.*, dn.name AS donor_name, dn.email AS donor_email, dp.name AS purpose_name, g.name AS gateway_name
@@ -552,9 +479,10 @@ final class FinanceService
              WHERE d.id = :id',
             ['id' => $donationId]
         );
-        if ($donation === null || empty($donation['donor_email']) || str_ends_with((string) $donation['donor_email'], '@almarah.local')) {
+        if ($donation === null || $donation['status'] !== 'completed' || !in_array($donation['verification_status'] ?? 'legacy', ['verified', 'legacy'], true) || empty($donation['donor_email']) || str_ends_with((string) $donation['donor_email'], '@almarah.local')) {
             return false;
         }
+        $this->assignReceiptNumber($donationId);
         $method = $donation['gateway_name'] ?: (self::OFFLINE_SOURCES[$donation['source']] ?? ucfirst((string) $donation['source']));
         $donation['_fundraiser_url'] = base_url('donate');
         $this->mailer->donationReceipt(
@@ -562,8 +490,17 @@ final class FinanceService
             (string) $donation['donor_name'],
             $donation,
             (string) ($donation['purpose_name'] ?? 'General Fund'),
-            $method
+            $method,
+            $resend ? Str::randomHex(8) : null
         );
+        if (!$donation['acknowledgment_self'] && !empty($donation['recipient_email']) &&
+            filter_var($donation['recipient_email'], FILTER_VALIDATE_EMAIL) &&
+            strcasecmp((string) $donation['recipient_email'], (string) $donation['donor_email']) !== 0) {
+            $this->mailer->donationReceipt((string) $donation['recipient_email'],
+                (string) ($donation['recipient_name'] ?: 'Friend'), $donation,
+                (string) ($donation['purpose_name'] ?? 'General Fund'), $method,
+                'recipient' . ($resend ? ':' . Str::randomHex(8) : ''));
+        }
         $this->donations->setReceiptStatus($donationId, 'queued');
         return true;
     }

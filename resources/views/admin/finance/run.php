@@ -18,9 +18,9 @@ $open = count(array_filter($items, static fn ($i) => $i['resolved_at'] === null)
 </div>
 
 <div class="stat-cards">
-  <div class="stat-card"><div class="k">Donations in period</div><div class="v"><?= (int) $run['donations_count'] ?></div><div class="d"><?= e(money((int) $run['donations_minor'])) ?> created</div></div>
-  <div class="stat-card brand"><div class="k">Verified</div><div class="v"><?= (int) $run['verified_count'] ?></div><div class="d"><?= e(money((int) $run['verified_minor'])) ?> completed</div></div>
-  <div class="stat-card"><div class="k">Pending</div><div class="v"><?= (int) $run['pending_count'] ?></div><div class="d"><?= e(money((int) $run['pending_minor'])) ?> · <?= (int) $run['failed_count'] ?> failed</div></div>
+  <div class="stat-card"><div class="k">Donations in period</div><div class="v"><?= (int) $run['donations_count'] ?></div><div class="d"><?= e(money((int) $run['donations_minor'])) ?> PKR created (all currencies counted above)</div></div>
+  <div class="stat-card brand"><div class="k">Verified PKR</div><div class="v"><?= (int) $run['verified_count'] ?></div><div class="d"><?= e(money((int) $run['verified_minor'])) ?> independently verified</div></div>
+  <div class="stat-card"><div class="k">Pending PKR</div><div class="v"><?= (int) $run['pending_count'] ?></div><div class="d"><?= e(money((int) $run['pending_minor'])) ?> · <?= (int) $run['failed_count'] ?> failed</div></div>
   <div class="stat-card"><div class="k">Discrepancies</div><div class="v"><?= (int) $run['mismatch_count'] ?></div><div class="d"><?= $open ?> still open</div></div>
 </div>
 

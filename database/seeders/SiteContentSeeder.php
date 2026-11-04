@@ -194,12 +194,29 @@ final class SiteContentSeeder
             'logs.view'           => 'View activity, email and payment logs',
             'backups.manage'      => 'Create and download backups',
         ];
+        foreach (['dashboard','donations','donors','grants','grant_assignments','reports','finance','users','roles','settings'] as $group) {
+            foreach (['view','create','edit','delete','manage'] as $action) {
+                $key = $group . '.' . $action;
+                $perms[$key] = ucfirst(str_replace('_', ' ', $action . ' ' . $group)) . (in_array($group,['grants','grant_assignments'],true) ? ' (reserved: no grant workflow)' : '');
+            }
+        }
+        $perms['reports.export'] = 'Export reports';
+        $perms['users.delete'] = 'Delete users (reserved: accounts can only be suspended)';
+        $perms['donations.delete'] = 'Delete donations (reserved: financial records cannot be deleted)';
+        $perms['finance.delete'] = 'Delete financial records (reserved: records cannot be deleted)';
         $roles = [
             'super_admin'       => array_keys($perms),
-            'admin'             => ['dashboard.view', 'content.manage', 'donations.view', 'donations.manage', 'volunteers.manage', 'forms.view', 'reports.view', 'logs.view'],
+            'admin'             => ['dashboard.view', 'content.manage', 'donations.view', 'donations.manage', 'volunteers.manage', 'forms.view', 'reports.view', 'logs.view', 'users.view', 'users.create', 'users.edit', 'roles.view'],
             'finance_manager'   => ['dashboard.view', 'donations.view', 'donations.manage', 'reports.view', 'finance.manage', 'logs.view'],
             'content_manager'   => ['dashboard.view', 'content.manage', 'forms.view'],
             'volunteer_manager' => ['dashboard.view', 'volunteers.manage', 'forms.view'],
+            'initial_reviewer' => ['dashboard.view', 'donations.view'],
+            'initial_review' => ['dashboard.view', 'donations.view'],
+            'verification_officer' => ['dashboard.view', 'donations.view'],
+            'viewer' => ['dashboard.view'],
+            'grant_manager' => ['dashboard.view','grants.view','grants.create','grants.edit','grant_assignments.view','grant_assignments.manage','users.view'],
+            'donation_manager' => ['dashboard.view','donations.view','donations.manage','donors.view'],
+            'reporting_officer' => ['dashboard.view','reports.view','reports.export'],
         ];
         $n = 0;
         foreach ($perms as $key => $label) {
@@ -207,6 +224,10 @@ final class SiteContentSeeder
                 $this->db->insert('permissions', ['name' => $key, 'group_name' => explode('.', $key)[0], 'label' => $label]);
                 $n++;
             }
+        }
+        // Once seeded, never recreate an administrator's deliberately revoked grants.
+        if ($this->db->int("SELECT COUNT(*) FROM site_settings WHERE setting_key = 'rbac.defaults_seeded'") > 0) {
+            return $n;
         }
         foreach ($roles as $roleSlug => $keys) {
             $roleId = $this->db->scalar('SELECT id FROM roles WHERE name = :s', ['s' => $roleSlug]);
@@ -221,6 +242,7 @@ final class SiteContentSeeder
                 $n += $this->db->insertIgnore('role_permissions', ['role_id' => (int) $roleId, 'permission_id' => (int) $permId]) ? 1 : 0;
             }
         }
+        $this->db->insertIgnore('site_settings', ['setting_key' => 'rbac.defaults_seeded', 'setting_value' => '1']);
         return $n;
     }
 }

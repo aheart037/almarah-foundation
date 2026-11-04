@@ -7,12 +7,12 @@
 <div class="dash-head">
   <div>
     <h1>Record an offline donation</h1>
-    <p class="sub">Bank credits, cash, cheques and Zelle transfers. Saved as <strong>completed</strong> with your name and the bank reference on the record.</p>
+    <p class="sub">Bank credits, cash, cheques and Zelle transfers. Saved as <strong>pending</strong> until independently reviewed and verified.</p>
   </div>
   <a class="btn btn-light" href="<?= e(base_url('admin/finance')) ?>">Back to finance desk</a>
 </div>
 
-<form method="post" action="<?= e(base_url('admin/finance/offline')) ?>" class="panel" novalidate>
+<form method="post" action="<?= e(base_url('admin/finance/offline')) ?>" class="panel" novalidate enctype="multipart/form-data">
   <?= csrf_field() ?>
   <?php if (error_for('form') !== ''): ?><div class="alert alert-error"><?= error_for('form') ?></div><?php endif; ?>
 
@@ -24,7 +24,7 @@
     <div class="field">
       <label for="currency">Currency</label>
       <select class="select-field" id="currency" name="currency">
-        <?php foreach (['PKR', 'USD', 'GBP', 'EUR', 'AED', 'CAD', 'AUD'] as $c): ?>
+        <?php foreach (['PKR', 'USD', 'GBP', 'EUR', 'AED', 'SAR', 'CAD', 'AUD'] as $c): ?>
           <option value="<?= $c ?>" <?= old('currency', 'PKR') === $c ? 'selected' : '' ?>><?= $c ?></option>
         <?php endforeach; ?>
       </select>
@@ -42,7 +42,7 @@
     </div>
     <div class="field">
       <label for="received_at">Date received</label>
-      <input class="input" type="date" id="received_at" name="received_at" value="<?= old('received_at', gmdate('Y-m-d')) ?>" max="<?= e(gmdate('Y-m-d')) ?>">
+      <input class="input" type="date" id="received_at" name="received_at" required value="<?= old('received_at', gmdate('Y-m-d')) ?>" max="<?= e(gmdate('Y-m-d')) ?>">
     </div>
   </div>
 
@@ -80,11 +80,11 @@
   <div class="form-row">
     <div class="field">
       <label for="donor_name">Name</label>
-      <input class="input" id="donor_name" name="donor_name" maxlength="120" value="<?= old('donor_name') ?>">
+      <input class="input" id="donor_name" name="donor_name" maxlength="150" value="<?= old('donor_name') ?>">
     </div>
     <div class="field">
       <label for="donor_email">Email</label>
-      <input class="input" type="email" id="donor_email" name="donor_email" maxlength="190" value="<?= old('donor_email') ?>">
+      <input class="input" type="email" id="donor_email" name="donor_email" maxlength="191" value="<?= old('donor_email') ?>">
     </div>
   </div>
   <div class="form-row">
@@ -94,11 +94,14 @@
     </div>
     <div class="field">
       <label for="note">Internal note</label>
-      <input class="input" id="note" name="note" maxlength="500" value="<?= old('note') ?>" placeholder="e.g. Zakat, received at office">
+      <input class="input" id="note" name="note" maxlength="255" value="<?= old('note') ?>" placeholder="e.g. Zakat, received at office">
     </div>
   </div>
 
-  <label class="checkbox-row"><input type="checkbox" name="send_receipt" value="1" <?= old('send_receipt', '1') === '1' ? 'checked' : '' ?>> Email a receipt to the donor (if an email is given)</label>
+  <div class="field"><label>Payment proof (PDF/JPG/PNG, 5 MB maximum)
+    <input type="file" name="payment_proof" accept=".pdf,.jpg,.jpeg,.png"></label></div>
+  <?php require __DIR__ . '/../../partials/donation-extra-fields.php'; ?>
+  <p>Receipt email is available only after final verification.</p>
 
   <div class="sr-actions" style="margin-top:18px">
     <button class="btn btn-brand" type="submit">Save donation</button>

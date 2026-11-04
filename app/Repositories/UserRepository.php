@@ -52,8 +52,8 @@ final class UserRepository
     public function markEmailVerified(int $id): void
     {
         $this->db->run(
-            'UPDATE users SET email_verified_at = UTC_TIMESTAMP(), status = :status WHERE id = :id AND email_verified_at IS NULL',
-            ['id' => $id, 'status' => 'active']
+            "UPDATE users SET email_verified_at = UTC_TIMESTAMP(), status = CASE WHEN status = 'pending' THEN 'active' ELSE status END WHERE id = :id AND email_verified_at IS NULL",
+            ['id' => $id]
         );
     }
 

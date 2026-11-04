@@ -13,7 +13,7 @@
     <p class="sub">Every transactional email the platform can send.</p>
   </div>
   <div class="sr-actions">
-    <a class="btn btn-light" href="<?= e(base_url('admin/email-queue')) ?>">Email queue</a>
+    <?php if ($can('logs.view')): ?><a class="btn btn-light" href="<?= e(base_url('admin/email-queue')) ?>">Email queue</a><?php endif; ?>
     <a class="btn btn-brand" href="<?= e(base_url('admin/settings#smtp')) ?>">SMTP settings</a>
   </div>
 </div>

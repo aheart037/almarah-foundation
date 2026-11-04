@@ -168,11 +168,11 @@ final class FinanceController extends Controller
     public function offlineStore(Request $request): Response
     {
         try {
-            $id = $this->finance->recordOffline($request->all(), (int) $this->auth->id());
+            $id = \app(\App\Services\DonationReviewService::class)->submit($request->all(), $request->file('payment_proof'), (int) $this->auth->id())['id'];
         } catch (InvalidArgumentException $e) {
             return $this->flashFormStateTo(['form' => $e->getMessage()], $request->all(), '/admin/finance/offline');
         }
-        $this->flashSuccess('Offline donation recorded.');
+        $this->flashSuccess('Donation submitted for independent verification.');
         return $this->redirect('/admin/donations/' . $id);
     }
 
@@ -198,7 +198,17 @@ final class FinanceController extends Controller
             'donation'     => $donation,
             'transactions' => $this->payments->forDonation((int) $id),
             'adjustments'  => $this->finance->adjustmentsFor((int) $id),
-            'types'        => FinanceService::ADJUSTMENT_TYPES,
+            'types'        => array_filter(FinanceService::ADJUSTMENT_TYPES, static function (string $label, string $type) use ($donation): bool {
+                $status=(string)$donation['status'];
+                $verification=(string)($donation['verification_status'] ?? 'legacy');
+                return match ($type) {
+                    'mark_completed' => $verification==='verified' && $donation['gateway_id']===null && $status!=='completed' && $status!=='refunded',
+                    'amount_correction' => $donation['gateway_id']===null && !in_array($status,['completed','refunded'],true) && !in_array($verification,['legacy','verified'],true),
+                    'refund_recorded' => $status==='completed' && $donation['gateway_id']===null,
+                    'mark_failed' => $donation['gateway_id']===null && !in_array($status,['completed','refunded'],true),
+                    default => false,
+                };
+            }, ARRAY_FILTER_USE_BOTH),
         ], 'layouts/admin');
     }
 
@@ -206,11 +216,16 @@ final class FinanceController extends Controller
     {
         $id = (string) $request->routeParam('id', 0);
         $type = (string) $request->input('adjustment_type', '');
+        $amountInput = trim((string)$request->input('new_amount',''));
+        if ($type === 'amount_correction' && !preg_match('/^\d{1,7}(?:\.\d{1,2})?$/D',$amountInput)) {
+            return $this->flashFormStateTo(['form'=>'Enter a valid amount with up to two decimal places.'], $request->all(), '/admin/finance/donations/'.$id.'/adjust');
+        }
+        $newAmountMinor = $type === 'amount_correction' ? \App\Core\Money::fromProviderString($amountInput) : 0;
         $data = [
             'reason'                 => $request->input('reason', ''),
             'evidence_reference'     => $request->input('evidence_reference', ''),
             'payment_transaction_id' => (int) $request->input('payment_transaction_id', 0) ?: null,
-            'new_amount_minor'       => (int) round(((float) $request->input('new_amount', 0)) * 100),
+            'new_amount_minor'       => $newAmountMinor,
             'send_receipt'           => $request->input('send_receipt', ''),
         ];
 
@@ -227,7 +242,8 @@ final class FinanceController extends Controller
     public function sendReceipt(Request $request): Response
     {
         $id = (string) $request->routeParam('id', 0);
-        $ok = $this->finance->sendReceipt((int) $id);
+        $ok = $this->finance->sendReceipt((int) $id, true);
+        if ($ok) \app(\App\Services\AuditService::class)->log('donation.receipt.resent', 'donation', $id, [], (int) $this->auth->id());
         $ok ? $this->flashSuccess('Receipt queued for delivery.') : $this->flashError('No donor email on file for this donation.');
         return $this->redirect('/admin/donations/' . $id);
     }
@@ -241,11 +257,16 @@ final class FinanceController extends Controller
             $month = gmdate('Y-m');
         }
 
+        $rows = $this->finance->exportRows($month);
         $csv = "Date,Reference,Receipt,Status,Amount,Currency,Purpose,Type,Method,Bank reference,Gateway txn,Donor,Donor email\n";
-        foreach ($this->finance->exportRows($month) as $r) {
+        foreach ($rows as $r) {
             $anon = !empty($r['anonymous']);
             $csv .= implode(',', array_map(
-                static fn (mixed $v): string => '"' . str_replace('"', '""', (string) $v) . '"',
+                static function (mixed $v): string {
+                    $text=(string)$v;
+                    if (preg_match('/^\s*[=+\-@]/u',$text)) $text="'".$text;
+                    return '"'.str_replace('"','""',$text).'"';
+                },
                 [
                     $r['dated'], $r['public_reference'], $r['receipt_number'], $r['status'],
                     number_format(((int) $r['amount_minor']) / 100, 2, '.', ''), $r['currency'],
@@ -255,6 +276,7 @@ final class FinanceController extends Controller
             )) . "\n";
         }
 
+        \app(\App\Services\AuditService::class)->logRequired('finance.export.downloaded','finance_export',$month,['rows'=>count($rows)],(int)$this->auth->id());
         return Response::download($csv, 'almarah-finance-' . $month . '.csv');
     }
 }

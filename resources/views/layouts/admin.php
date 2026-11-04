@@ -17,14 +17,14 @@ use App\Http\Controllers\Admin\InboxController;
 
 $appName = (string) Config::get('app.name', 'Almarah Foundation');
 $title = isset($pageTitle) && $pageTitle !== '' ? $pageTitle . ' | Admin' : 'Admin';
-$path = '/' . trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
+// Request::path() (shared by index.php) strips the installation folder and
+// normalises trailing slashes; raw REQUEST_URI does neither on subfolder hosts.
+$path = (string) ($currentPath ?? \App\Core\BasePath::strip('/' . trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/')));
 $is = static function (string $prefix) use ($path): string {
-    if ($prefix === '/admin') {
-        return $path === '/admin' ? 'active' : '';
-    }
-    return str_starts_with($path, $prefix) ? 'active' : '';
+    return $path === $prefix || ($prefix !== '/admin' && str_starts_with($path, $prefix . '/')) ? 'active' : '';
 };
 $can = isset($can) && is_callable($can) ? $can : static fn (string $p): bool => false;
+$adminRole = in_array('admin', $currentUserRoles ?? [], true) || in_array('super_admin', $currentUserRoles ?? [], true);
 $fullName = trim((string) ($authUser['first_name'] ?? '') . ' ' . (string) ($authUser['last_name'] ?? ''));
 
 $inboxOpen = 0;
@@ -63,7 +63,7 @@ $icon = static function (string $name): string {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$name] ?? '') . '</svg>';
 };
 $link = static function (string $href, string $label, string $iconName, string $active, ?int $badge = null) use ($icon): string {
-    return '<a href="' . e(base_url($href)) . '" class="' . $active . '">' . $icon($iconName) . ' ' . e($label)
+    return '<a href="' . e(base_url($href)) . '" class="' . $active . '"' . ($active !== '' ? ' aria-current="page"' : '') . '>' . $icon($iconName) . ' ' . e($label)
         . ($badge ? '<span class="nav-badge">' . (int) $badge . '</span>' : '') . '</a>';
 };
 ?>
@@ -84,7 +84,7 @@ $link = static function (string $href, string $label, string $iconName, string $
 
 <header class="site-header admin-topbar" id="site-header">
   <div class="wrap header-inner" style="display:flex;align-items:center;gap:16px;min-height:64px">
-    <a class="brand-lockup" href="<?= e(base_url('admin')) ?>" aria-label="Admin home" style="display:flex;align-items:center;gap:10px;text-decoration:none">
+    <a class="brand-lockup" href="<?= e(base_url($can('dashboard.view') ? 'admin' : '/')) ?>" aria-label="<?= $can('dashboard.view') ? 'Admin home' : 'Site home' ?>" style="display:flex;align-items:center;gap:10px;text-decoration:none">
       <img src="<?= e(asset('assets/images/logo/header-logo-01.png')) ?>" alt="" width="120" height="43" style="height:40px;width:auto">
       <span style="font-weight:700;color:#6b0f35;letter-spacing:.04em;font-size:13px;text-transform:uppercase">Admin</span>
     </a>
@@ -92,7 +92,7 @@ $link = static function (string $href, string $label, string $iconName, string $
       <a class="btn btn-light btn-sm" href="<?= e(base_url('/')) ?>" target="_blank" rel="noopener">View site</a>
       <form class="inline-form" method="post" action="<?= e(base_url('logout')) ?>">
         <?= csrf_field() ?>
-        <button class="btn btn-sm" type="submit" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.55)">Sign out</button>
+        <button class="btn btn-sm" type="submit">Sign out</button>
       </form>
       <button class="btn btn-light btn-sm admin-side-toggle" type="button" aria-expanded="false" aria-controls="adminSide" data-side-toggle>Menu</button>
     </div>
@@ -103,6 +103,7 @@ $link = static function (string $href, string $label, string $iconName, string $
 <?php require __DIR__ . '/../partials/alerts.php'; ?>
 
   <div class="dash-shell">
+    <button class="admin-side-backdrop" type="button" aria-label="Close navigation" data-side-close tabindex="-1" hidden></button>
     <aside class="dash-side" id="adminSide">
       <div class="dash-side-head" style="background:linear-gradient(135deg,#2a1119 0%,#6b0f35 100%)">
         <span class="avatar"><?= e(initials($fullName !== '' ? $fullName : 'Admin')) ?></span>
@@ -110,13 +111,17 @@ $link = static function (string $href, string $label, string $iconName, string $
         <span><?= e(implode(', ', array_map(static fn (string $r): string => ucwords(str_replace('_', ' ', $r)), $currentUserRoles ?? []))) ?></span>
       </div>
       <nav class="dash-nav" aria-label="Admin">
-        <?= $link('admin', 'Overview', 'home', $is('/admin')) ?>
+        <?php if ($can('dashboard.view')): ?>
+          <div class="nav-group">Workspace</div>
+          <?= $link('admin', 'Overview', 'home', $is('/admin')) ?>
+        <?php endif; ?>
         <?php if ($can('forms.view') || $can('volunteers.manage')): ?>
           <?= $link('admin/inbox/' . ($can('forms.view') ? 'contact' : 'volunteers'), 'Inbox', 'inbox', $is('/admin/inbox'), $inboxOpen ?: null) ?>
         <?php endif; ?>
 
         <?php if ($can('content.manage')): ?>
           <div class="nav-group">Website</div>
+          <?php if ($adminRole): ?><?= $link('admin/campaigns', 'Campaigns', 'purpose', $is('/admin/campaigns')) ?><?php endif; ?>
           <?= $link('admin/cms/pages', 'Pages', 'pages', $is('/admin/cms/pages')) ?>
           <?= $link('admin/cms/slides', 'Homepage slider', 'slides', $is('/admin/cms/slides')) ?>
           <?= $link('admin/cms/banners', 'Banners', 'banner', $is('/admin/cms/banners')) ?>
@@ -135,11 +140,12 @@ $link = static function (string $href, string $label, string $iconName, string $
           <?= $link('admin/cms/jobs', 'Job openings', 'jobs', $is('/admin/cms/jobs')) ?>
         <?php endif; ?>
 
-        <?php if ($can('donations.view') || $can('finance.manage')): ?>
+        <?php if ($can('donations.view') || $can('donors.view') || $can('finance.manage') || $can('logs.view')): ?>
           <div class="nav-group">Finance</div>
           <?php if ($can('donations.view')): ?>
             <?= $link('admin/donations', 'Donations', 'heart', $is('/admin/donations')) ?>
-            <?= $link('admin/donors', 'Donors', 'users', $is('/admin/donors')) ?>
+            <?php endif; ?>
+          <?php if ($can('donors.view') || $can('donations.view')): ?><?= $link('admin/donors', 'Donors', 'users', $is('/admin/donors')) ?>
           <?php endif; ?>
           <?php if ($can('finance.manage')): ?>
             <?= $link('admin/finance', 'Finance desk', 'chart', $is('/admin/finance')) ?>
@@ -151,25 +157,30 @@ $link = static function (string $href, string $label, string $iconName, string $
         <?php endif; ?>
 
         <?php if ($can('reports.view')): ?>
-          <?php $reportsOpen = str_starts_with($path, '/admin/reports'); ?>
+          <div class="nav-group">Insights</div>
+          <?php $reportsOpen = $is('/admin/reports') !== ''; ?>
           <details class="nav-details" <?= $reportsOpen ? 'open' : '' ?>>
-            <summary class="<?= $reportsOpen ? 'active' : '' ?>"><?= $icon('report') ?> Reports</summary>
+            <summary class="<?= $reportsOpen ? 'active' : '' ?>" <?= $reportsOpen ? 'aria-current="location"' : '' ?>><?= $icon('report') ?> Reports</summary>
             <?php foreach (\App\Services\ReportService::catalog() as $reportSlug => $reportItem):
                 $reportHref = $reportSlug === 'overview' ? 'admin/reports' : 'admin/reports/' . $reportSlug;
+                $reportPath = '/admin/reports/' . $reportSlug;
                 $reportOn = $reportSlug === 'overview'
-                    ? in_array($path, ['/admin/reports', '/admin/reports/overview'], true)
-                    : $path === '/admin/reports/' . $reportSlug; ?>
-              <a href="<?= e(base_url($reportHref)) ?>" class="nav-sub <?= $reportOn ? 'active' : '' ?>"><?= e($reportItem['title']) ?></a>
+                    ? ($path === '/admin/reports' || $is($reportPath) !== '')
+                    : $is($reportPath) !== ''; ?>
+              <a href="<?= e(base_url($reportHref)) ?>" class="nav-sub <?= $reportOn ? 'active' : '' ?>" <?= $reportOn ? 'aria-current="page"' : '' ?>><?= e($reportItem['title']) ?></a>
             <?php endforeach; ?>
           </details>
         <?php endif; ?>
 
-        <?php if ($can('users.manage') || $can('settings.manage') || $can('logs.view') || $can('backups.manage')): ?>
+        <?php if ($can('grants.view')): ?><?= $link('admin/grants', 'Grants', 'report', $is('/admin/grants')) ?><?php endif; ?>
+
+        <?php if ($can('users.view') || $can('users.manage') || $can('roles.view') || $can('roles.manage') || $can('settings.manage') || $can('logs.view') || $can('backups.manage')): ?>
           <div class="nav-group">System</div>
           <?php if ($can('backups.manage')): ?><?= $link('admin/backups', 'Backups', 'backup', $is('/admin/backups')) ?><?php endif; ?>
-          <?php if ($can('users.manage')): ?><?= $link('admin/users', 'Users & roles', 'users', $is('/admin/users')) ?><?php endif; ?>
+          <?php if ($can('roles.view') || $can('roles.manage')): ?><?= $link('admin/roles', 'Roles', 'users', $is('/admin/roles')) ?><?php endif; ?>
+          <?php if ($can('users.view') || $can('users.manage')): ?><?= $link('admin/users', 'Users', 'users', $is('/admin/users')) ?><?php endif; ?>
           <?php if ($can('settings.manage')): ?>
-            <?= $link('admin/email-templates', 'Emails', 'mail', $is('/admin/email')) ?>
+            <?= $link('admin/email-templates', 'Emails', 'mail', $is('/admin/email-templates')) ?>
             <?= $link('admin/settings', 'Settings', 'settings', $is('/admin/settings')) ?>
           <?php elseif ($can('logs.view')): ?>
             <?= $link('admin/email-queue', 'Email queue', 'mail', $is('/admin/email-queue')) ?>

@@ -52,6 +52,10 @@ final class DonationController extends Controller
             'source'   => (string) $request->input('source', ''),
         ];
 
+        foreach (['donor_name','phone','email','amount_min','amount_max','receipt_number','transaction_id','payment_method','verification_status','recipient','referrer','staff_member'] as $key) {
+            $filters[$key] = trim((string) $request->input($key, ''));
+        }
+
         $page = max(1, (int) $request->input('page', 1));
         $perPage = 25;
 
@@ -97,7 +101,12 @@ final class DonationController extends Controller
             'transactions' => $transactions,
             'callbacks'    => $callbacks,
             'refunds'      => $refunds,
-            'auditTrail'   => [],
+            'auditTrail'   => $this->db->select("SELECT a.created_at, a.action, u.email AS actor FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id WHERE a.entity_type='donation' AND a.entity_id=:id ORDER BY a.id DESC LIMIT 100", ['id' => (string) $donation['id']]),
+            'reviewHistory' => \app(\App\Services\DonationReviewService::class)->history((int) $donation['id']),
+            'duplicates' => \app(\App\Services\DonationReviewService::class)->possibleDuplicates($donation),
+            'emailHistory' => $this->db->select("SELECT id, event_key, recipient_email, status, attempts, last_error, sent_at, created_at FROM email_jobs WHERE dedupe_key LIKE :key ORDER BY id DESC", ['key' => 'donation.receipt:' . $donation['id'] . '%']),
+            'reviewStages' => \app(\App\Services\DonationReviewService::class)->stages(),
+            'staffIdentity' => $this->db->selectOne('SELECT creator.email AS created_by, verifier.email AS verified_by FROM donations d LEFT JOIN users creator ON creator.id=d.recorded_by LEFT JOIN users verifier ON verifier.id=d.verified_by WHERE d.id=:id', ['id' => $donation['id']]),
         ], 'layouts/admin');
     }
 
@@ -161,7 +170,12 @@ final class DonationController extends Controller
         }
 
         $amount = (string) $request->input('amount', '');
-        $amountMinor = $amount !== '' ? (int) round(((float) str_replace(',', '', $amount)) * 100) : null;
+        $normalAmount = str_replace(',', '', trim($amount));
+        if ($normalAmount !== '' && !preg_match('/^[0-9]{1,9}(?:\.[0-9]{1,2})?$/D', $normalAmount)) {
+            $this->flashError('Enter a valid refund amount with up to two decimal places.');
+            return $this->redirect('/admin/donations/' . $donation['id']);
+        }
+        $amountMinor = $normalAmount !== '' ? \App\Core\Money::fromProviderString($normalAmount) : null;
 
         try {
             $result = $this->service->refund(
@@ -194,32 +208,58 @@ final class DonationController extends Controller
             'purpose_id' => (int) $request->input('purpose_id', 0),
         ];
 
-        $result = $this->donations->search($filters, 1, 5000);
-
-        $csv = "Reference,Created,Status,Method,Amount,Currency,Donor,Donor email,Purpose,Type,Transaction,Bank reference,Receipt\n";
-
-        foreach ($result['rows'] as $row) {
-            $csv .= implode(',', array_map(
-                static fn (mixed $value): string => '"' . str_replace('"', '""', (string) $value) . '"',
-                [
-                    $row['public_reference'] ?? '',
-                    $row['created_at'] ?? '',
-                    $row['status'] ?? '',
-                    $row['gateway_code'] ?: ($row['source'] ?? 'offline'),
-                    number_format(((int) ($row['amount_minor'] ?? 0)) / 100, 2, '.', ''),
-                    $row['currency'] ?? 'PKR',
-                    ($row['anonymous'] ?? 0) ? 'Anonymous' : ($row['donor_name'] ?? ''),
-                    ($row['anonymous'] ?? 0) ? '' : ($row['donor_email'] ?? ''),
-                    $row['purpose_name'] ?? $row['fundraiser_title'] ?? 'General Fund',
-                    $row['donation_type'] ?? 'one_time',
-                    $row['provider_transaction_id'] ?? '',
-                    $row['bank_reference'] ?? '',
-                    $row['receipt_number'] ?? '',
-                ]
-            )) . "\n";
+        foreach (['donor_name','phone','email','amount_min','amount_max','receipt_number','transaction_id','payment_method','verification_status','recipient','referrer','staff_member'] as $key) {
+            $filters[$key] = trim((string) $request->input($key, ''));
         }
+        $path = tempnam(sys_get_temp_dir(), 'almarah-ledger-');
+        if ($path === false) throw new \RuntimeException('Private export storage is unavailable.');
+        chmod($path, 0600);
+        $handle = fopen($path, 'wb');
+        if ($handle === false) { @unlink($path); throw new \RuntimeException('Could not open private export.'); }
+        try {
+            $total = 0;
+            $this->db->transaction(function () use ($filters, $handle, &$total): void {
+                $header = "Reference,Receipt,Transaction date,Status,Verification,Method,Amount,Currency,Donor,Donor phone,Donor email,Recipient,Referrer,Created by,Verified by,Provider transaction,Bank reference\n";
+                if (fwrite($handle, $header) !== strlen($header)) throw new \RuntimeException('Could not write the donation export.');
 
-        return Response::download($csv, 'almarah-donations-' . gmdate('Y-m-d') . '.csv');
+                // Preserve the existing ledger columns and filters, without the
+                // former silent first-5,000-rows limit. A DB snapshot holds rows
+                // steady across pages and the file stays private until served.
+                $page = 1;
+                do {
+                    $result = $this->donations->search($filters, $page++, 500);
+                    $total = (int) $result['total'];
+                    foreach ($result['rows'] as $row) {
+                        $values = [
+                            $row['public_reference'] ?? '', $row['receipt_number'] ?? '',
+                            $row['transaction_at'] ?: $row['created_at'], $row['status'], $row['verification_status'],
+                            $row['gateway_code'] ?: ($row['payment_method'] ?: ($row['source'] ?? 'offline')),
+                            number_format(((int) ($row['amount_minor'] ?? 0)) / 100, 2, '.', ''),
+                            $row['currency'] ?? 'PKR', $row['donor_name'] ?? '', $row['donor_phone'] ?? '',
+                            $row['donor_email'] ?? '', $row['recipient_name'] ?? '', $row['referrer_name'] ?? '',
+                            $row['created_by_email'] ?? '', $row['verified_by_email'] ?? '',
+                            $row['provider_transaction_id'] ?? '', $row['bank_reference'] ?? '',
+                        ];
+                        $csv = implode(',', array_map(static function (mixed $value): string {
+                            $text = (string) $value;
+                            // Prevent spreadsheet formula execution in donor input.
+                            if (preg_match('/^[\s\x00-\x1F]*[=+@-]/u', $text)) $text = "'" . $text;
+                            return '"' . str_replace('"', '""', $text) . '"';
+                        }, $values)) . "\n";
+                        if (fwrite($handle, $csv) !== strlen($csv)) throw new \RuntimeException('Could not write the donation export.');
+                    }
+                } while (($page - 1) * 500 < $total);
+            });
+            if (!fclose($handle)) throw new \RuntimeException('Could not finish the donation export.');
+            \App\Core\App::instance()->make(\App\Services\AuditService::class)->logRequired(
+                'donation.ledger.exported', 'donations', null, ['rows' => $total], (int) $this->auth->id()
+            );
+            return Response::temporaryFile($path, 'almarah-donations-' . gmdate('Y-m-d') . '.csv', 'text/csv; charset=utf-8');
+        } catch (\Throwable $e) {
+            if (is_resource($handle)) fclose($handle);
+            @unlink($path);
+            throw $e;
+        }
     }
 
     /** Raw provider traffic, for debugging a stuck payment. */
