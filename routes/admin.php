@@ -176,8 +176,8 @@ return static function (Router $router) use ($adminContent, $adminContentCsrf, $
     $router->get('/admin/reports', [ReportController::class, 'overview'], $can('reports.view'), 'admin.reports');
     $router->get('/admin/reports/{slug}', [ReportController::class, 'show'], $can('reports.view'), 'admin.reports.show');
     $router->get('/admin/reports/{slug}/pdf', [ReportController::class, 'pdf'], $can('reports.view'), 'admin.reports.pdf');
-    $router->get('/admin/reports/{slug}/csv', [ReportController::class, 'csv'], $can('reports.view'), 'admin.reports.csv');
-    $router->get('/admin/reports/{slug}/xlsx', [ReportController::class, 'xlsx'], $can('reports.view'), 'admin.reports.xlsx');
+    $router->get('/admin/reports/{slug}/csv', [\App\Http\Controllers\Admin\ReportExportController::class, 'csv'], $can('reports.view'), 'admin.reports.csv');
+    $router->get('/admin/reports/{slug}/xlsx', [\App\Http\Controllers\Admin\ReportExportController::class, 'xlsx'], $can('reports.view'), 'admin.reports.xlsx');
 
     // --- audit --------------------------------------------------------------
     $router->get('/admin/audit', [AuditController::class, 'index'], $can('logs.view'), 'admin.audit');

@@ -7,6 +7,8 @@
  */
 $slides = is_array($slides ?? null) ? $slides : [];
 ?>
+<?php /* v3.1: styles for the stats strip and closing hero (kept out of the bundled site.css). */ ?>
+<link rel="stylesheet" href="<?= e(asset('assets/css/home-v31.css')) ?>">
 <?php if ($slides !== []): ?>
 <section class="hero-slider" id="heroSlider" aria-roledescription="carousel" aria-label="Highlights" data-autoplay="1" data-interval="6000" tabindex="0">
     <?php foreach ($slides as $i => $slide):
@@ -58,4 +60,10 @@ $slides = is_array($slides ?? null) ? $slides : [];
 </section>
 <?php endif; ?>
 
+<?php /* v3.1: statistics strip immediately after the slider. */ ?>
+<?php require __DIR__ . '/pages/home-stats.php'; ?>
+
 <?php require __DIR__ . '/pages/home-sections.php'; ?>
+
+<?php /* v3.1: closing hero immediately before the footer. */ ?>
+<?php require __DIR__ . '/pages/home-cta-hero.php'; ?>
