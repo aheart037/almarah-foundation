@@ -78,6 +78,7 @@ $link = static function (string $href, string $label, string $iconName, string $
 <link rel="stylesheet" href="<?= e(asset('assets/css/style.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/admin.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/reports.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/admin-v31.css')) ?>">
 <?php require __DIR__ . '/../partials/favicon.php'; ?>
 </head>
 <body class="admin-body">

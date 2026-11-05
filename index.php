@@ -97,11 +97,16 @@ try {
     }
     $response ??= render_error($app, $e->statusCode(), $e->getMessage(), $e->headers());
 } catch (\Throwable $e) {
+    // v3.1: a short error ID is written to the log AND shown on the error page, so a
+    // reported error can be matched to its exact log entry (storage/logs/app-YYYY-MM-DD.log).
+    $errorId = strtoupper(bin2hex(random_bytes(4)));
     $logger->error('Unhandled exception', [
+        'error_id'  => $errorId,
         'exception' => get_class($e),
         'message'   => $e->getMessage(),
         'file'      => $e->getFile(),
         'line'      => $e->getLine(),
+        'url'       => ($_SERVER['REQUEST_METHOD'] ?? '') . ' ' . ($_SERVER['REQUEST_URI'] ?? ''),
     ]);
 
     // Before the site has been installed, a database problem is expected — the
@@ -111,12 +116,37 @@ try {
     // never taken and real errors are reported normally.
     $notInstalled = !is_file($app->basePath('storage/app/installed.lock'));
 
+    // v3.1: a missing lock file alone does not mean "not installed". If an administrator
+    // already exists in the database (the installer's own second lock), this is a real
+    // error on a working site (for example a report query), so show it instead of
+    // sending the visitor to /setup and hiding the cause.
+    if ($notInstalled && is_database_problem($e)) {
+        try {
+            if ($app->make(\App\Services\InstallerService::class)->hasAdministrator()) {
+                $notInstalled = false;
+            }
+        } catch (\Throwable) {
+            // Database unreachable: genuinely not set up, keep the /setup redirect.
+        }
+    }
+
     if ($notInstalled && is_database_problem($e)) {
         $response = Response::redirect('/setup');
     } else {
         $message = (bool) config('app.debug', false)
             ? $e->getMessage() . ' — ' . $e->getFile() . ':' . $e->getLine()
             : 'Something went wrong on our side. Our team has been notified.';
+
+        // The real cause is shown only to a signed-in administrator, never to the public.
+        try {
+            $viewer = $app->make(\App\Services\AuthService::class);
+            if ($viewer->check() && ($viewer->isAdmin() || $viewer->isSuperAdmin())) {
+                $message = get_class($e) . ': ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
+            }
+        } catch (\Throwable) {
+            // Could not identify the viewer: keep the generic message.
+        }
+        $message .= ' [Error ID: ' . $errorId . ']';
 
         $response = render_error($app, 500, $message);
     }
