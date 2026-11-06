@@ -214,6 +214,7 @@ try {
 <link rel="preload" href="<?= e(asset('assets/fonts/manrope-latin-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="<?= e(asset('assets/fonts/open-sans-latin-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="<?= e(asset('assets/css/site.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/hero-v32.css')) ?>">
 <?php require __DIR__ . '/../partials/favicon.php'; ?>
 </head>
 <body class="site-body<?= !empty($bodyClass) ? ' ' . e((string) $bodyClass) : '' ?><?= $isAuthPage ? ' auth-page-body' : '' ?>">

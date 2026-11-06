@@ -12,6 +12,7 @@
         <span></span><span></span><span></span>
     </div>
     <div class="ikr-hero-inner">
+        <span class="hx-eyebrow">Our Programs</span>
         <h1>Izzat Ki<em>Roti</em></h1>
         <p class="ikr-hero-desc">
             Feeding the hungry with dignity — no queues, no cameras, no stigma.

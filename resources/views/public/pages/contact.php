@@ -9,6 +9,7 @@
     <div class="ct-hero-circle-tl"></div>
     <div class="ct-hero-circle-br"></div>
     <div class="ct-hero-inner">
+        <span class="hx-eyebrow">Contact Us</span>
         <h1>Get in <em>Touch</em> With Us</h1>
         <p class="ct-hero-sub">
             We would love to hear from you. Send us a message or reach out on WhatsApp and our team will get back to you as soon as possible.

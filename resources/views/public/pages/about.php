@@ -9,6 +9,7 @@
   <div class="ab-hero-circle-tl"></div>
   <div class="ab-hero-circle-br"></div>
   <div class="ab-hero-inner ab-reveal">
+    <span class="hx-eyebrow">Who We Are</span>
     <h1>About <em>Almarah Foundation</em></h1>
     <p class="ab-hero-sub">A leading non-profit committed to the relief and empowerment of the marginalized across Pakistan — building paths toward dignity, education, and long-term well-being.</p>
     <div class="ab-hero-badges">

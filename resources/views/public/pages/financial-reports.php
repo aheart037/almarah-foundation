@@ -9,6 +9,7 @@
     <div class="fr-hero-circle-tl"></div>
     <div class="fr-hero-circle-br"></div>
     <div class="fr-hero-inner">
+        <span class="hx-eyebrow">Transparency &amp; Trust</span>
         <h1>Financial <em>Reports</em></h1>
         <p class="fr-hero-sub">
             At Almarah Foundation, transparency is the foundation of trust. Every donation is used responsibly and every rupee is accounted for publicly.

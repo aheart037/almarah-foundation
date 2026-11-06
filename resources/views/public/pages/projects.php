@@ -13,6 +13,7 @@
   <div class="prj-hero-circle-tl"></div>
   <div class="prj-hero-circle-br"></div>
   <div class="prj-hero-inner">
+    <span class="hx-eyebrow">What We Do</span>
     <h1>Our <em>Projects</em></h1>
     <p class="prj-hero-desc">
       Empowering underprivileged children through quality education, holistic care, and essential food support — transforming lives across Pakistan, one child at a time.

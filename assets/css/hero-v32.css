@@ -1,0 +1,669 @@
+/* ==========================================================================
+   Almarah Foundation v3.2 — unified page-hero system
+   --------------------------------------------------------------------------
+   Layered on top of site.css (loaded right after it in layouts/public.php).
+   Only the existing brand palette (wine / rose / gold / blush) and the
+   existing fonts (Manrope + Open Sans) are used. No page logic is touched.
+
+   Anatomy of every hero
+     1. Aurora background  – wine→rose gradient + gold and rose glows
+     2. ::before layer     – fading dot-grid + concentric ripple rings
+     3. ::after layer      – curved bottom edge that melts into the next
+                             section (colour set with --hx-next)
+     4. Content            – glass eyebrow chip, big title with a gold
+                             gradient accent, soft subtitle, glass badges
+   ========================================================================== */
+
+:root {
+  --hx-deep: #4A0A24;
+  --hx-wine: #6B0F35;
+  --hx-plum: #8A2050;
+  --hx-rose: #A92D63;
+  --hx-rose-light: #C4386F;
+  --hx-gold: #F2C200;
+  --hx-gold-light: #FFD740;
+  --hx-gold-pale: #FFE98A;
+  --hx-blush: #FDF5F8;
+  --hx-next: #FDF5F8;               /* colour of the section below a hero */
+  --hx-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* --------------------------------------------------------------------------
+   1. Hero shell (every page hero)
+   -------------------------------------------------------------------------- */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+         .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+         .dn-hero, .prog-hero, .eb-hero, .hx-hero) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: block;
+  min-height: 0;
+  color: #fff;
+  text-align: center;
+  padding: clamp(64px, 8vw, 104px) 24px clamp(96px, 11vw, 148px);
+  background-color: var(--hx-wine);
+  background-image:
+    radial-gradient(62% 80% at 6% 104%, rgba(242, 194, 0, .30) 0%, transparent 62%),
+    radial-gradient(48% 70% at 98% -6%, rgba(196, 56, 111, .65) 0%, transparent 64%),
+    radial-gradient(40% 55% at 52% 118%, rgba(20, 0, 10, .45) 0%, transparent 70%),
+    linear-gradient(158deg, var(--hx-deep) 0%, var(--hx-wine) 30%, var(--hx-plum) 62%, var(--hx-rose) 100%);
+  background-size: auto;
+  background-position: center;
+}
+
+/* 2. Dot-grid + ripple rings ------------------------------------------------ */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+         .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+         .dn-hero, .prog-hero, .eb-hero, .hx-hero)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .20) 1px, transparent 1.6px),
+    radial-gradient(circle at 100% 0,
+      transparent 0 200px, rgba(255, 255, 255, .10) 201px 202px,
+      transparent 203px 330px, rgba(255, 255, 255, .075) 331px 332px,
+      transparent 333px 470px, rgba(255, 255, 255, .05) 471px 472px, transparent 473px),
+    radial-gradient(circle at 0 100%,
+      transparent 0 150px, rgba(242, 194, 0, .20) 151px 152px,
+      transparent 153px 280px, rgba(242, 194, 0, .12) 281px 282px,
+      transparent 283px 420px, rgba(242, 194, 0, .07) 421px 422px, transparent 423px);
+  background-size: 28px 28px, auto, auto;
+  background-position: 0 0, 0 0, 0 0;
+  background-repeat: repeat, no-repeat, no-repeat;
+  inset: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  transform: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 55%, rgba(0, 0, 0, .35) 100%);
+          mask-image: linear-gradient(180deg, #000 0%, #000 55%, rgba(0, 0, 0, .35) 100%);
+}
+
+/* 3. Curved bottom edge ----------------------------------------------------- */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+         .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+         .dn-hero, .prog-hero, .eb-hero, .hx-hero)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  top: auto;
+  width: auto;
+  height: clamp(30px, 5.2vw, 72px);
+  z-index: 0;
+  pointer-events: none;
+  border: 0;
+  border-radius: 0;
+  background: var(--hx-next);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 72' preserveAspectRatio='none'%3E%3Cpath d='M0 72V14Q720 98 1440 14V72Z' fill='black'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 72' preserveAspectRatio='none'%3E%3Cpath d='M0 72V14Q720 98 1440 14V72Z' fill='black'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat;
+}
+
+/* Heroes that sit on a white section */
+body :is(.ab-hero, .vl-hero) { --hx-next: #fff; }
+
+/* Heroes followed by a dark strip: straight edge + a gold hairline */
+body :is(.bnk-hero, .don-hero, .ikr-hero)::after {
+  height: 4px;
+  -webkit-mask: none;
+          mask: none;
+  background: linear-gradient(90deg, transparent 0%, var(--hx-gold) 28%, var(--hx-gold-light) 50%, var(--hx-gold) 72%, transparent 100%);
+}
+body :is(.bnk-hero, .don-hero, .ikr-hero) { padding-bottom: clamp(72px, 9vw, 120px); }
+
+/* Heroes whose next block overlaps them (cards pulled up with a negative margin) */
+body :is(.dn-hero, .prog-hero)::after { display: none; }
+body .dn-hero { padding: clamp(56px, 7vw, 88px) 0 clamp(96px, 10vw, 128px); }
+body .prog-hero { text-align: left; padding: clamp(60px, 8vw, 104px) 0 clamp(96px, 10vw, 128px); }
+
+/* Photo background supplied by the admin (CMS pages) */
+body .page-hero.has-image {
+  background-image:
+    linear-gradient(158deg, rgba(74, 10, 36, .93) 0%, rgba(107, 15, 53, .86) 45%, rgba(169, 45, 99, .74) 100%),
+    var(--hero-img);
+  background-size: cover;
+  background-position: center;
+}
+body .page-hero.has-image::before { opacity: .55; }
+
+/* --------------------------------------------------------------------------
+   4. Inner wrappers
+   -------------------------------------------------------------------------- */
+body :is(.ab-hero-inner, .bnk-hero-inner, .vl-hero-inner, .cr-hero-inner, .ct-hero-inner,
+         .don-hero-inner, .fr-hero-inner, .ikr-hero-inner, .hero-inner, .mou-hero-inner,
+         .nl-hero-inner, .prj-hero-inner, .lc-hero-inner, .eb-hero-inner, .hx-inner) {
+  position: relative;
+  z-index: 2;
+  max-width: 860px;
+  margin: 0 auto;
+}
+body :is(.page-hero, .dn-hero) > .container { position: relative; z-index: 2; max-width: 860px; }
+body .prog-hero > .container { max-width: var(--container, 1240px); }
+
+/* --------------------------------------------------------------------------
+   5. Eyebrow chip
+   -------------------------------------------------------------------------- */
+body :is(.hx-eyebrow, .cr-hero-eyebrow, .mou-hero-eyebrow, .nl-hero-eyebrow, .dn-eyebrow,
+         .page-hero .eyebrow, .prog-hero .eyebrow) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  padding: 9px 18px 9px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .07));
+  border: 1px solid rgba(255, 255, 255, .24);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 8px 22px rgba(0, 0, 0, .14);
+  font-family: var(--f-head, 'Manrope', sans-serif);
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--hx-gold-pale);
+}
+body :is(.hx-eyebrow, .cr-hero-eyebrow, .mou-hero-eyebrow, .nl-hero-eyebrow, .dn-eyebrow,
+         .page-hero .eyebrow, .prog-hero .eyebrow)::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hx-gold);
+  box-shadow: 0 0 0 4px rgba(242, 194, 0, .22), 0 0 14px rgba(242, 194, 0, .85);
+  opacity: 1;
+}
+body :is(.hx-eyebrow, .cr-hero-eyebrow, .mou-hero-eyebrow, .nl-hero-eyebrow, .dn-eyebrow,
+         .page-hero .eyebrow, .prog-hero .eyebrow)::after { display: none; }
+
+/* --------------------------------------------------------------------------
+   6. Title
+   -------------------------------------------------------------------------- */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+         .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .dn-hero, .eb-hero, .hx-hero) h1 {
+  margin: 0;
+  font-family: var(--f-head, 'Manrope', sans-serif);
+  font-weight: 800;
+  font-size: clamp(2.15rem, 6.2vw, 4.4rem);
+  line-height: 1.04;
+  letter-spacing: -.035em;
+  color: #fff;
+  text-shadow: 0 6px 38px rgba(20, 0, 10, .35);
+  text-wrap: balance;
+}
+body .prog-hero h1 {
+  margin: 0 0 16px;
+  font-family: var(--f-head, 'Manrope', sans-serif);
+  font-weight: 800;
+  font-size: clamp(2.1rem, 5vw, 3.7rem);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+  color: #fff;
+  text-shadow: 0 6px 38px rgba(20, 0, 10, .35);
+}
+/* Gold accent words */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+         .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .eb-hero, .hx-hero) h1 :is(em, span) {
+  font-style: normal;
+  color: var(--hx-gold);
+  background-image: linear-gradient(100deg, var(--hx-gold-light) 0%, var(--hx-gold) 48%, var(--hx-gold-pale) 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-box-decoration-break: clone;
+          box-decoration-break: clone;
+  filter: drop-shadow(0 0 22px rgba(242, 194, 0, .34));
+  text-shadow: none;
+}
+body :is(.bnk-hero, .don-hero, .ikr-hero, .page-hero) h1 em { display: block; margin-top: 4px; }
+
+/* --------------------------------------------------------------------------
+   7. Subtitle / lead paragraph
+   -------------------------------------------------------------------------- */
+body :is(.ab-hero-sub, .bnk-hero-sub, .cr-hero-sub, .ct-hero-sub, .don-hero-sub, .fr-hero-sub,
+         .ikr-hero-desc, .mou-hero-sub, .nl-hero-sub, .prj-hero-desc, .lc-hero-sub, .hx-sub,
+         .vl-hero-inner > p, .page-hero .container > p, .dn-hero .container > p) {
+  max-width: 46rem;
+  margin: 22px auto 0;
+  font-family: var(--f-body, 'Open Sans', sans-serif);
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, .86);
+  text-shadow: 0 2px 14px rgba(20, 0, 10, .25);
+}
+body .prog-hero .lead {
+  max-width: 34rem;
+  margin: 0 0 8px;
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  line-height: 1.75;
+  color: rgba(255, 255, 255, .88);
+}
+
+/* Short tag-line variant (leadership + e-book): a quiet glass pill */
+body :is(.page-hero .hero-sub, .eb-hero-sub) {
+  display: inline-block;
+  margin: 22px auto 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .10);
+  border: 1px solid rgba(255, 255, 255, .2);
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+  font-family: var(--f-head, 'Manrope', sans-serif);
+  font-size: clamp(.66rem, 1.4vw, .78rem);
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .88);
+  text-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   8. Glass badges
+   -------------------------------------------------------------------------- */
+body :is(.ab-hero-badges, .cr-hero-badges, .fr-hero-badges, .lc-hero-badges,
+         .mou-hero-badges, .nl-hero-badges, .hx-chips) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 34px 0 0;
+}
+body :is(.ab-hero-badge, .cr-hero-badge, .fr-hero-badge, .lc-hero-badge,
+         .mou-hero-badge, .nl-hero-badge, .hx-chip) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 19px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .15), rgba(255, 255, 255, .06));
+  border: 1px solid rgba(255, 255, 255, .22);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 8px 20px rgba(0, 0, 0, .12);
+  font-family: var(--f-head, 'Manrope', sans-serif);
+  font-size: .76rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .03em;
+  color: rgba(255, 255, 255, .94);
+  transition: transform .3s var(--hx-ease), background .3s ease, border-color .3s ease;
+}
+body :is(.ab-hero-badge, .cr-hero-badge, .fr-hero-badge, .lc-hero-badge,
+         .mou-hero-badge, .nl-hero-badge, .hx-chip):hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, .2);
+  border-color: rgba(255, 255, 255, .4);
+}
+body :is(.ab-hero-badge, .cr-hero-badge, .fr-hero-badge, .lc-hero-badge,
+         .mou-hero-badge, .nl-hero-badge, .hx-chip).gold {
+  background: linear-gradient(180deg, rgba(242, 194, 0, .30), rgba(242, 194, 0, .12));
+  border-color: rgba(255, 215, 64, .55);
+  color: var(--hx-gold-pale);
+}
+body :is(.cr-hero-badge, .fr-hero-badge, .lc-hero-badge, .mou-hero-badge, .nl-hero-badge) svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The About badges have no icon: give them a gold spark */
+body .ab-hero-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hx-gold);
+  box-shadow: 0 0 10px rgba(242, 194, 0, .85);
+}
+
+/* Floating icon tile (careers + newsletter) */
+body :is(.cr-hero-icon-bg, .nl-hero-icon-bg) {
+  width: 84px;
+  height: 84px;
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .06));
+  border: 1px solid rgba(255, 215, 64, .45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 18px 50px rgba(20, 0, 10, .35), 0 0 0 10px rgba(242, 194, 0, .07);
+}
+body :is(.cr-hero-icon-bg, .nl-hero-icon-bg) svg { stroke: var(--hx-gold-light); }
+body :is(.cr-hero-icon-wrap, .nl-hero-icon-wrap) { position: relative; display: flex; width: fit-content; margin: 0 auto 26px; }
+
+/* --------------------------------------------------------------------------
+   9. Buttons inside heroes
+   -------------------------------------------------------------------------- */
+body .vl-hero-btn,
+body .don-hero-btn.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 30px;
+  padding: 16px 32px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--hx-gold) 0%, var(--hx-gold-light) 100%);
+  color: var(--hx-wine);
+  font-family: var(--f-head, 'Manrope', sans-serif);
+  font-size: .82rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 12px 30px rgba(242, 194, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .5);
+  transition: transform .3s var(--hx-ease), box-shadow .3s ease;
+}
+body .vl-hero-btn::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform .3s var(--hx-ease);
+}
+body .vl-hero-btn:hover,
+body .don-hero-btn.primary:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(242, 194, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .5); color: var(--hx-wine); }
+body .vl-hero-btn:hover::after { transform: translateX(4px); }
+body .don-hero-btn.outline {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .10);
+  border: 1.5px solid rgba(255, 255, 255, .4);
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+}
+body .don-hero-btn.outline:hover { background: #fff; color: var(--hx-plum); }
+body .don-hero-btns { margin-top: 30px; }
+body .don-hero-btn.primary { margin-top: 0; }
+
+body .ikr-hero-scroll {
+  margin-top: 32px;
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .10);
+  border: 1px solid rgba(255, 255, 255, .22);
+  color: rgba(255, 255, 255, .88);
+}
+body .ikr-hero-scroll:hover { background: rgba(242, 194, 0, .2); color: var(--hx-gold-pale); }
+
+/* Programme pages */
+body .prog-hero-actions { margin-top: 26px; }
+body .prog-hero-actions .btn { border-radius: 999px; }
+
+/* --------------------------------------------------------------------------
+   10. Ornament divider (kept, re-tuned)
+   -------------------------------------------------------------------------- */
+body :is(.bnk-hero-ornament, .ikr-hero-ornament, .hero-ornament, .eb-hero-ornament, .hx-ornament) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 30px;
+}
+body :is(.bnk-hero-ornament, .ikr-hero-ornament, .hero-ornament, .eb-hero-ornament, .hx-ornament) .bar {
+  width: 64px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--hx-gold));
+}
+body :is(.bnk-hero-ornament, .ikr-hero-ornament, .hero-ornament, .eb-hero-ornament, .hx-ornament) .bar.r {
+  background: linear-gradient(90deg, var(--hx-gold), transparent);
+}
+body :is(.bnk-hero-ornament, .ikr-hero-ornament, .hero-ornament, .eb-hero-ornament, .hx-ornament) .diamond {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--hx-gold);
+  transform: rotate(45deg);
+  box-shadow: 0 0 18px rgba(242, 194, 0, .75);
+}
+
+/* --------------------------------------------------------------------------
+   11. Decorative child shapes already present in the markup
+   -------------------------------------------------------------------------- */
+/* top-left: soft floating light orb */
+body :is(.ab-hero-circle-tl, .cr-hero-circle-tl, .ct-hero-circle-tl, .fr-hero-circle-tl,
+         .lc-hero-circle-tl, .mou-hero-circle-tl, .nl-hero-circle-tl, .prj-hero-circle-tl,
+         .bnk-hero-circle, .don-hero-circle, .ikr-hero-circle, .eb-hero-circle) {
+  position: absolute;
+  top: -140px;
+  left: -110px;
+  right: auto;
+  bottom: auto;
+  width: 420px;
+  height: 420px;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 42%, rgba(255, 190, 215, .26) 0%, rgba(196, 56, 111, .16) 42%, transparent 70%);
+  filter: blur(2px);
+  z-index: 0;
+  pointer-events: none;
+  animation: hx-float 11s ease-in-out infinite;
+}
+/* bottom-right: concentric gold halo */
+body :is(.ab-hero-circle-br, .cr-hero-circle-br, .ct-hero-circle-br, .fr-hero-circle-br,
+         .lc-hero-circle-br, .mou-hero-circle-br, .nl-hero-circle-br, .prj-hero-circle-br) {
+  position: absolute;
+  right: -170px;
+  bottom: -190px;
+  left: auto;
+  top: auto;
+  width: 420px;
+  height: 420px;
+  border: 1px solid rgba(242, 194, 0, .34);
+  border-radius: 50%;
+  outline: 1px solid rgba(242, 194, 0, .16);
+  outline-offset: 46px;
+  box-shadow: 0 0 80px rgba(242, 194, 0, .10) inset;
+  background: none;
+  z-index: 0;
+  pointer-events: none;
+  animation: hx-spin-slow 60s linear infinite;
+}
+/* large dashed ring (careers / mous / newsletter) */
+body :is(.cr-hero-ring, .mou-hero-ring, .nl-hero-ring) {
+  border: 1px dashed rgba(255, 255, 255, .12);
+  width: 860px;
+  height: 860px;
+  z-index: 0;
+}
+body :is(.cr-hero-ring, .mou-hero-ring, .nl-hero-ring)::before { display: none; }
+@media (max-width: 640px) {
+  body :is(.cr-hero-ring, .mou-hero-ring, .nl-hero-ring) { width: 560px; height: 560px; }
+  body :is(.ab-hero-circle-tl, .cr-hero-circle-tl, .ct-hero-circle-tl, .fr-hero-circle-tl,
+           .lc-hero-circle-tl, .mou-hero-circle-tl, .nl-hero-circle-tl, .prj-hero-circle-tl,
+           .bnk-hero-circle, .don-hero-circle, .ikr-hero-circle, .eb-hero-circle) { width: 260px; height: 260px; }
+}
+
+/* --------------------------------------------------------------------------
+   12. Programme-page photo collage
+   -------------------------------------------------------------------------- */
+body .prog-hero .container { z-index: 2; }
+body .prog-hero-images { gap: 14px; }
+body .prog-hero-images img {
+  border-radius: 22px;
+  border: 4px solid rgba(255, 255, 255, .92);
+  box-shadow: 0 24px 50px rgba(20, 0, 10, .38);
+  transition: transform .5s var(--hx-ease);
+}
+body .prog-hero-images img:nth-child(1) { transform: rotate(-3.5deg) translateY(10px); }
+body .prog-hero-images img:nth-child(2) { transform: translateY(26px) scale(1.04); }
+body .prog-hero-images img:nth-child(3) { transform: rotate(3.5deg) translateY(10px); }
+body .prog-hero-images:hover img:nth-child(1) { transform: rotate(-1.5deg) translateY(2px); }
+body .prog-hero-images:hover img:nth-child(2) { transform: translateY(16px) scale(1.06); }
+body .prog-hero-images:hover img:nth-child(3) { transform: rotate(1.5deg) translateY(2px); }
+@media (max-width: 899px) {
+  body .prog-hero { text-align: center; }
+  body .prog-hero .lead { margin-left: auto; margin-right: auto; }
+  body .prog-hero-actions { justify-content: center; }
+}
+
+/* --------------------------------------------------------------------------
+   13. Hero for pages that had none (CEO, Chairperson, E-Book)
+   -------------------------------------------------------------------------- */
+body .hx-hero .hx-inner > * { margin-left: auto; margin-right: auto; }
+body .hx-hero .hx-chips { margin-top: 30px; }
+
+/* --------------------------------------------------------------------------
+   14. Home page: slider text + closing hero
+   -------------------------------------------------------------------------- */
+body .hero-slide .slide-overlay { background: linear-gradient(180deg, rgba(26, 8, 16, calc(var(--overlay, 0) * .75)) 0%, rgba(26, 8, 16, var(--overlay, 0)) 100%); }
+body .hero-slide.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(74, 10, 36, .55) 0%, transparent 100%);
+}
+body .hero-slide .slide-content { z-index: 2; }
+body .slide-box h2 {
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.06;
+  text-wrap: balance;
+}
+body .slide-box h2::after {
+  content: "";
+  display: block;
+  width: 72px;
+  height: 4px;
+  margin-top: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--hx-gold), var(--hx-gold-light));
+  box-shadow: 0 0 18px rgba(242, 194, 0, .6);
+}
+body .slide-pos-center .slide-box h2::after { margin-left: auto; margin-right: auto; }
+body .slide-pos-right .slide-box h2::after { margin-left: auto; }
+body .hero-slide .btn { border-radius: 999px; }
+body .hero-dots button { width: 28px; height: 6px; border-radius: 6px; transition: width .3s var(--hx-ease), background .3s ease; }
+body .hero-dots button[aria-selected="true"] { width: 44px; transform: none; background: var(--hx-gold); box-shadow: 0 0 12px rgba(242, 194, 0, .7); }
+body .hero-arrow { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-color: rgba(255, 255, 255, .5); }
+body .hero-arrow:hover { background: var(--hx-gold); border-color: var(--hx-gold); color: var(--hx-wine); }
+
+/* Closing "Together, we can…" hero */
+body .hv-cta-overlay {
+  background:
+    radial-gradient(60% 80% at 6% 104%, rgba(242, 194, 0, .28) 0%, transparent 62%),
+    radial-gradient(48% 70% at 98% -6%, rgba(196, 56, 111, .5) 0%, transparent 64%),
+    linear-gradient(158deg, rgba(74, 10, 36, .94) 0%, rgba(107, 15, 53, .88) 40%, rgba(169, 45, 99, .78) 100%);
+}
+body .hv-cta-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .16) 1px, transparent 1.6px),
+    radial-gradient(circle at 100% 0, transparent 0 200px, rgba(255, 255, 255, .09) 201px 202px, transparent 203px 340px, rgba(255, 255, 255, .06) 341px 342px, transparent 343px);
+  background-size: 28px 28px, auto;
+  -webkit-mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .3));
+          mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .3));
+}
+body .hv-cta-eyebrow {
+  padding: 9px 18px 9px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .07));
+  border: 1px solid rgba(255, 255, 255, .24);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+  letter-spacing: .24em;
+  color: var(--hx-gold-pale);
+}
+body .hv-cta-eyebrow::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hx-gold);
+  opacity: 1;
+  box-shadow: 0 0 0 4px rgba(242, 194, 0, .22), 0 0 14px rgba(242, 194, 0, .85);
+}
+body .hv-cta-eyebrow::after { display: none; }
+body .hv-cta h2 { letter-spacing: -.035em; text-wrap: balance; }
+body .hv-cta h2 em {
+  font-style: normal;
+  background-image: linear-gradient(100deg, var(--hx-gold-light), var(--hx-gold) 50%, var(--hx-gold-pale));
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 22px rgba(242, 194, 0, .34));
+}
+
+/* --------------------------------------------------------------------------
+   15. Motion
+   -------------------------------------------------------------------------- */
+@keyframes hx-rise   { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes hx-float  { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(24px, 18px, 0); } }
+@keyframes hx-spin-slow { to { transform: rotate(360deg); } }
+
+body :is(.hx-eyebrow, .cr-hero-eyebrow, .mou-hero-eyebrow, .nl-hero-eyebrow, .dn-eyebrow,
+         .page-hero .eyebrow, .prog-hero .eyebrow) { animation: hx-rise .8s var(--hx-ease) .05s both; }
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+         .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .dn-hero, .prog-hero, .eb-hero, .hx-hero) h1 { animation: hx-rise .9s var(--hx-ease) .15s both; }
+body :is(.ab-hero-sub, .bnk-hero-sub, .cr-hero-sub, .ct-hero-sub, .don-hero-sub, .fr-hero-sub,
+         .ikr-hero-desc, .mou-hero-sub, .nl-hero-sub, .prj-hero-desc, .lc-hero-sub, .hx-sub,
+         .vl-hero-inner > p, .page-hero .container > p, .page-hero .hero-sub, .dn-hero .container > p,
+         .prog-hero .lead, .eb-hero-sub) { animation: hx-rise .9s var(--hx-ease) .28s both; }
+body :is(.ab-hero-badges, .cr-hero-badges, .fr-hero-badges, .lc-hero-badges, .mou-hero-badges,
+         .nl-hero-badges, .hx-chips, .vl-hero-btn, .don-hero-btns, .ikr-hero-scroll,
+         .prog-hero-actions, .hero-ornament, .bnk-hero-ornament, .ikr-hero-ornament) { animation: hx-rise .9s var(--hx-ease) .42s both; }
+body .prog-hero-images { animation: hx-rise 1s var(--hx-ease) .3s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+           .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .dn-hero, .prog-hero, .eb-hero, .hx-hero) *,
+  body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+           .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .dn-hero, .prog-hero, .eb-hero, .hx-hero) {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   16. Small screens
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+           .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .eb-hero, .hx-hero) {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  body :is(.dn-hero, .prog-hero) { padding-left: 0; padding-right: 0; }
+  body :is(.hx-eyebrow, .cr-hero-eyebrow, .mou-hero-eyebrow, .nl-hero-eyebrow, .dn-eyebrow,
+           .page-hero .eyebrow, .prog-hero .eyebrow) { font-size: .6rem; letter-spacing: .2em; padding: 8px 15px 8px 12px; }
+  body :is(.ab-hero-badge, .cr-hero-badge, .fr-hero-badge, .lc-hero-badge, .mou-hero-badge, .nl-hero-badge, .hx-chip) {
+    padding: 9px 14px;
+    font-size: .7rem;
+  }
+  body :is(.page-hero .hero-sub, .eb-hero-sub) { letter-spacing: .1em; border-radius: 20px; padding: 10px 18px; line-height: 1.5; }
+  body .vl-hero-btn, body .don-hero-btn { width: 100%; justify-content: center; }
+  body .don-hero-btns { width: 100%; }
+  body .prog-hero-images img:nth-child(2) { transform: translateY(16px) scale(1.02); }
+}
+
+/* CMS page with an admin-supplied photo: re-assert the ripple layer over the older overlay rule */
+body .page-hero.has-image::before {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .20) 1px, transparent 1.6px),
+    radial-gradient(circle at 100% 0, transparent 0 200px, rgba(255, 255, 255, .10) 201px 202px, transparent 203px 330px, rgba(255, 255, 255, .075) 331px 332px, transparent 333px);
+  background-size: 28px 28px, auto;
+  background-repeat: repeat, no-repeat;
+  opacity: .55;
+}

@@ -4,6 +4,16 @@
  * Markup preserved from the original site; styles live in assets/css/pages/ceos-message.css.
  */
 ?>
+<?php
+$hero = [
+    'eyebrow' => "CEO's Message",
+    'title'   => 'A Message from',
+    'accent'  => 'Our CEO',
+    'sub'     => 'Words of vision and gratitude from the leadership steering Almarah Foundation’s mission across Pakistan.',
+    'chips'   => ['Ms. Mahnoor Lilla', 'CEO | Almarah Foundation'],
+];
+require __DIR__ . '/../../partials/page-hero.php';
+?>
 <div class="ceo-page">
     <div class="ceo-layout">
 

@@ -4,6 +4,16 @@
  * Markup preserved from the original site; styles live in assets/css/pages/e-book.css.
  */
 ?>
+<?php
+$hero = [
+    'eyebrow' => 'Official Publication',
+    'title'   => 'Almarah Foundation',
+    'accent'  => 'E-Book',
+    'sub'     => 'Read, browse and download our organisational profile — vision, leadership, programmes and impact in one place.',
+    'chips'   => ['Profile 2026', 'Free to Download'],
+];
+require __DIR__ . '/../../partials/page-hero.php';
+?>
 <!-- ═══════ EBOOK SHOWCASE ═══════ -->
 <section class="eb-showcase">
     <div class="eb-wrap">

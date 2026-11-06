@@ -31,6 +31,7 @@
         Community Impact
       </div>
     </div>
+  </div>
 </section>
 
 <!-- SECTION INTRO -->

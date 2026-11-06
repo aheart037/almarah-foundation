@@ -6,6 +6,7 @@
 ?>
 <section class="page-hero">
     <div class="hero-inner">
+        <span class="hx-eyebrow">Our People</span>
         <h1>Our Distinguished<em>Leadership</em></h1>
         <p class="hero-sub">Board of Directors · Honorary Members · Ambassadors</p>
         <div class="hero-ornament">

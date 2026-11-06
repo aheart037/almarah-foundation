@@ -12,6 +12,7 @@
     <div class="don-hero-circle"></div>
     <div class="don-hero-inner">
         
+        <span class="hx-eyebrow">Make a Difference</span>
         <h1>Give Today,<em>Change a Life</em></h1>
         <p class="don-hero-sub">
             Your donation reaches people across Pakistan who need food, education, and a chance to rebuild. Every rupee is accounted for.

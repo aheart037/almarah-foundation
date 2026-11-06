@@ -11,6 +11,7 @@
 <section class="bnk-hero">
     <div class="bnk-hero-circle"></div>
     <div class="bnk-hero-inner">
+        <span class="hx-eyebrow">Ways to Give</span>
         <h1>Donate via<em>Bank Transfer</em></h1>
         <p class="bnk-hero-sub">
             Transfer your donation securely to any of our verified bank accounts. Every rupee goes directly to our programs across Pakistan.

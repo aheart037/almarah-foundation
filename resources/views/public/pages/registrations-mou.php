@@ -9,6 +9,7 @@
     <div class="lc-hero-circle-tl"></div>
     <div class="lc-hero-circle-br"></div>
     <div class="lc-hero-inner">
+        <span class="hx-eyebrow">Compliance &amp; Trust</span>
         <h1>Licenses, Certificates <em>& Registrations</em></h1>
         <p class="lc-hero-sub">
             Almarah Foundation is fully committed to transparency, compliance, and accountability. We operate under all required legal registrations and maintain up-to-date licenses and certifications issued by relevant authorities.

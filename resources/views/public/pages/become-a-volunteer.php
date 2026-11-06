@@ -7,6 +7,7 @@
 <!-- HERO -->
 <section class="vl-hero">
   <div class="vl-hero-inner">
+    <span class="hx-eyebrow">Volunteer With Us</span>
     <h1>Give Your Time,<br><span>Change a Life</span></h1>
     <p>At Almarah Foundation, our volunteers are the backbone of everything we do. From feeding hundreds of families to mentoring children at our care homes, your time and effort create real, lasting change for those who need it most.</p>
     <a href="#volunteer-form" class="vl-hero-btn">Join as a Volunteer</a>

@@ -4,6 +4,16 @@
  * Markup preserved from the original site; styles live in assets/css/pages/chairpersons-message.css.
  */
 ?>
+<?php
+$hero = [
+    'eyebrow' => "Chairperson's Message",
+    'title'   => 'A Message from',
+    'accent'  => 'Our Chairperson',
+    'sub'     => 'A heartfelt note on the purpose, values and promise that guide everything Almarah Foundation does.',
+    'chips'   => ['Sophiya Waraich', 'Chairperson | Almarah Foundation'],
+];
+require __DIR__ . '/../../partials/page-hero.php';
+?>
 <div class="cp-page">
     <div class="cp-layout">
 
