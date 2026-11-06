@@ -109,7 +109,7 @@ final class PaymentStatusService
                     'last_reconciled_at'           => gmdate('Y-m-d H:i:s'),
                 ]);
 
-                $this->notifyDonor($donation, 'pending');
+                $this->attemptNotification('pending', $donation, fn () => $this->notifyDonor($donation, 'pending'));
 
                 return ['changed' => true, 'status' => 'processing', 'reason' => 'provider_processing'];
             }
@@ -150,8 +150,13 @@ final class PaymentStatusService
                 'gateway'   => (string) ($transaction['gateway_code'] ?? ''),
             ]);
 
-            $this->sendReceipt($donation, (string) ($transaction['gateway_code'] ?? ''));
-            $this->notifyFundraiserOwner($donation);
+            // Notification failures must not roll back a bank-confirmed payment.
+            // Keep these independent so a receipt error does not skip the owner.
+            $confirmed = $this->donations->find((int) $donation['id']) ?? $donation;
+            $this->attemptNotification('receipt', $confirmed, fn () =>
+                $this->sendReceipt($confirmed, (string) ($transaction['gateway_code'] ?? '')));
+            $this->attemptNotification('fundraiser_owner', $confirmed, fn () =>
+                $this->notifyFundraiserOwner($confirmed));
 
             return ['changed' => true, 'status' => 'completed', 'reason' => 'verified_completed'];
         }
@@ -173,7 +178,7 @@ final class PaymentStatusService
                 'code'      => $result->providerCode,
             ]);
 
-            $this->notifyDonor($donation, $target);
+            $this->attemptNotification($target, $donation, fn () => $this->notifyDonor($donation, $target));
 
             return ['changed' => true, 'status' => $target, 'reason' => 'verified_' . $target];
         }
@@ -251,6 +256,25 @@ final class PaymentStatusService
     }
 
     // ------------------------------------------------------------------ mail
+
+    private function attemptNotification(string $kind, array $donation, callable $send): void
+    {
+        try {
+            $send();
+        } catch (\Throwable $e) {
+            // The caller commits the donation and payment in one transaction.
+            // An optional email/template failure must not undo those writes.
+            try {
+                $this->logger->payment('Payment saved; notification failed', [
+                    'donation_id' => (int) $donation['id'],
+                    'notification' => $kind,
+                    'error_type' => get_class($e),
+                ]);
+            } catch (\Throwable) {
+                error_log('[almarah] Payment notification failed for donation ' . (int) $donation['id']);
+            }
+        }
+    }
 
     /** @param array<string,mixed> $donation */
     private function sendReceipt(array $donation, string $gatewayCode): void
