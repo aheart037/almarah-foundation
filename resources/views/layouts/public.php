@@ -215,6 +215,10 @@ try {
 <link rel="preload" href="<?= e(asset('assets/fonts/open-sans-latin-normal.woff2')) ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="<?= e(asset('assets/css/site.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/hero-v32.css')) ?>">
+<?php if (str_contains($content, 'class="section pr-page"')): ?>
+<link rel="stylesheet" href="<?= e(asset('assets/css/payment-result.css')) ?>">
+<script src="<?= e(asset('assets/js/payment-result.js')) ?>" defer></script>
+<?php endif; ?>
 <?php require __DIR__ . '/../partials/favicon.php'; ?>
 </head>
 <body class="site-body<?= !empty($bodyClass) ? ' ' . e((string) $bodyClass) : '' ?><?= $isAuthPage ? ' auth-page-body' : '' ?>">

@@ -44,14 +44,27 @@ $amountText = $prDonation !== null ? money((int) $prDonation['amount_minor'], $c
 preg_match('/^(\D*?)\s*([\d,.]+.*)$/u', $amountText, $amountParts);
 $amountCur  = trim((string) ($amountParts[1] ?? ''));
 $amountNum  = (string) ($amountParts[2] ?? $amountText);
-// Legacy rows are historical data, not proof of a verified payment.
-$legacyUnverified = $prOutcome === 'completed' && (string) ($prDonation['verification_status'] ?? '') !== 'verified';
+// Bank settlement and staff approval of an official receipt are separate.
+// Only server-stored, finalized transactions can establish gateway success.
+$bankConfirmed = false;
+foreach ($prTransactions as $tx) {
+    if ($prDonation !== null && !empty($prDonation['gateway_id'])
+        && (int) ($tx['donation_id'] ?? 0) === (int) $prDonation['id']
+        && (string) ($tx['status'] ?? '') === 'completed'
+        && !empty($tx['finalized_at'])) {
+        $bankConfirmed = true;
+        break;
+    }
+}
+$staffVerified = (string) ($prDonation['verification_status'] ?? '') === 'verified';
+$paymentConfirmed = $prOutcome === 'completed' && ($bankConfirmed || $staffVerified);
+$legacyUnverified = $prOutcome === 'completed' && !$paymentConfirmed;
 $offlinePending = $prOutcome === 'processing' && $prDonation !== null && empty($prDonation['gateway_id']);
-$officialReceipt = $prOutcome === 'completed' && !$legacyUnverified;
+$officialReceipt = $prOutcome === 'completed' && $staffVerified;
 $receiptSent = $officialReceipt && ($prDonation['receipt_email_status'] ?? '') === 'sent';
-$countable  = $officialReceipt && preg_match('/^\d[\d,]*$/', $amountNum) === 1;
+$countable  = $paymentConfirmed && preg_match('/^\d[\d,]*$/', $amountNum) === 1;
 $target     = (string) ($prDonation['fundraiser_title'] ?? '');
-$targetText = $target !== '' ? $target : 'Almarah Foundation general fund';
+$targetText = $target !== '' ? $target : (string) ($prDonation['purpose_name'] ?? 'Almarah Foundation general fund');
 $anonymous  = !empty($prDonation['anonymous']);
 // This public status page is opened with a reference, not a logged-in identity.
 // Do not disclose the donor's full name to someone who guesses that reference.
@@ -106,8 +119,8 @@ $view = match ($prOutcome) {
     'completed'  => $legacyUnverified
         ? ['tone' => 'wait', 'kicker' => 'Historical record', 'title' => 'Verification not established',
            'lead' => 'This historical donation is marked completed, but this record does not establish independent verification. Contact our team before relying on it as a verified payment.']
-        : ['tone' => 'ok', 'kicker' => 'Payment Successful', 'title' => 'JazakAllah Khair!',
-           'lead' => 'Your donation has been confirmed by the bank. May Allah accept your generosity. Ameen.'],
+        : ['tone' => 'ok', 'kicker' => 'Payment Successful', 'title' => 'Thank you for your donation!',
+           'lead' => 'Your payment was successful, and your donation has been confirmed. JazakAllah Khair for your support.'],
     'processing' => $offlinePending
         ? ['tone' => 'wait', 'kicker' => 'Under review', 'title' => 'Transfer report received',
            'lead' => 'Your report is pending staff verification. The funds have not been confirmed and this is not a receipt. Keep your reference safe.']
@@ -128,7 +141,7 @@ $icons = [
 
 // Progress steps: done | now | todo | fail
 $step2 = $legacyUnverified ? 'now' : match ($prOutcome) { 'completed', 'refunded' => 'done', 'processing' => 'now', default => 'fail' };
-$step3 = $legacyUnverified ? 'todo' : match ($prOutcome) { 'completed', 'refunded' => 'done', default => 'todo' };
+$step3 = $legacyUnverified ? 'todo' : match ($prOutcome) { 'completed' => $receiptSent ? 'done' : 'now', 'refunded' => 'done', default => 'todo' };
 $steps = [
     [$offlinePending ? 'now' : 'done', $offlinePending ? 'Transfer reported' : 'Payment sent', $offlinePending ? 'Waiting for staff review' : 'Payment method: ' . $gatewayName],
     [$step2, $offlinePending ? 'Staff verification' : 'Bank confirmation', $legacyUnverified ? 'Not independently verified' : ($prOutcome === 'completed' ? 'Verified by the bank' : ($prOutcome === 'processing' ? ($offlinePending ? 'Waiting for staff' : 'Waiting for the bank') : 'Not confirmed'))],
@@ -139,7 +152,7 @@ $shareText = 'I just donated to ' . $targetText . ' with Almarah Foundation. Ple
 $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
 ?>
 <section class="section pr-page" data-pr="<?= e($prOutcome) ?>" data-pr-ref="<?= e($prReference) ?>"
-         <?php if ($prOutcome === 'processing' && $prReference !== ''): ?>data-pr-poll="<?= e($prStatusUrl) ?>"<?php endif; ?>>
+         <?php if ($prOutcome === 'processing' && !$offlinePending && $prReference !== ''): ?>data-pr-poll="<?= e($prStatusUrl) ?>"<?php endif; ?>>
   <div class="wrap wrap-narrow">
 
     <!-- HERO -->
@@ -148,7 +161,7 @@ $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
       <div class="pr-icon"><?= $icons[$view['tone']] ?></div>
       <p class="pr-kicker"><?= e($view['kicker']) ?></p>
       <h1><?= e($view['title']) ?></h1>
-      <?php if ($officialReceipt): ?>
+      <?php if ($paymentConfirmed): ?>
         <p class="pr-arabic" lang="ar" dir="rtl">جزاك الله خيرًا</p>
       <?php endif; ?>
 
@@ -157,7 +170,7 @@ $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
           <?php if ($amountCur !== ''): ?><span class="pr-cur"><?= e($amountCur) ?></span><?php endif; ?>
           <span class="pr-num"<?= $countable ? ' data-count="' . e((string) (int) str_replace(',', '', $amountNum)) . '"' : '' ?>><?= e($amountNum) ?></span>
         </div>
-        <p class="pr-to"><?= $officialReceipt ? 'given to' : 'for' ?> <b><?= e($targetText) ?></b></p>
+        <p class="pr-to"><?= $paymentConfirmed ? 'given to' : 'for' ?> <b><?= e($targetText) ?></b></p>
       <?php endif; ?>
 
       <p class="pr-lead"><?= e($view['lead']) ?></p>
@@ -168,7 +181,7 @@ $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
         <?php if ($prOutcome === 'failed'): ?><span class="pr-chip pr-chip-good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>No donation counted</span><?php endif; ?>
       </div>
 
-      <?php if ($prOutcome === 'processing'): ?>
+      <?php if ($prOutcome === 'processing' && !$offlinePending && $prReference !== ''): ?>
         <p class="pr-poll" id="prPoll" aria-live="polite">Checking again in <b id="prCountdown">20</b> seconds&hellip;</p>
       <?php endif; ?>
     </div>
@@ -220,6 +233,8 @@ $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
         <?php if ($prOutcome === 'completed'): ?>
           <?php if ($legacyUnverified): ?>
             <p class="pr-note">No verified receipt is available for this historical record. Please contact <a href="mailto:<?= e($orgEmail) ?>"><?= e($orgEmail) ?></a> for help.</p>
+          <?php elseif (!$officialReceipt): ?>
+            <p class="pr-note">Your payment is confirmed. Your official receipt is awaiting staff approval. Keep this reference for your records.</p>
           <?php else: ?>
             <p class="pr-note"><?= $receiptSent ? 'An authorized receipt has been emailed to' : 'Your authorized receipt is being prepared for' ?> <b><?= e($emailMasked) ?></b>.</p>
           <?php endif; ?>
@@ -237,7 +252,7 @@ $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
 
       <!-- SIDE -->
       <aside class="pr-side pr-noprint">
-        <?php if ($officialReceipt): ?>
+        <?php if ($paymentConfirmed): ?>
           <div class="pr-card">
             <h3>Multiply your gift</h3>
             <p class="muted">One message can bring in the next donor. Tell someone why you gave.</p>

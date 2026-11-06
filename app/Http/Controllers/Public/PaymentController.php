@@ -100,7 +100,9 @@ final class PaymentController extends Controller
                 'gateway' => $gateway,
                 'error'   => $e->getMessage(),
             ]);
-            $redirect = $this->redirect('/donation/failed?reason=unknown');
+            // An exception is not a bank decline. Never encourage a second payment
+            // when verification or persistence could not finish.
+            $redirect = $this->redirect('/donation/processing?reason=verification_unavailable');
         }
 
         $location = (string) ($redirect->headers()['Location'] ?? '');
