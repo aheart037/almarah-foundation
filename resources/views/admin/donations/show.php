@@ -35,6 +35,9 @@ $canRefund = $status === 'completed' && $transactions !== [];
   </div>
 </div>
 
+<?php require __DIR__ . '/review-panel.php'; ?>
+<?php require __DIR__ . '/certificate-panel.php'; ?>
+
 <div class="grid-2">
   <section class="panel">
     <h2>Donation</h2>

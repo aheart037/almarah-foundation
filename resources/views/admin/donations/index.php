@@ -19,6 +19,7 @@
   </div>
   <?php if ($can('reports.view')): ?>
     <div class="sr-actions">
+      <a class="btn btn-light" href="<?= e(base_url('admin/ledger')) ?>">Ledger</a>
       <a class="btn btn-outline-brand" href="<?= e(base_url('admin/donations/export?' . http_build_query(array_filter($filters, static fn ($v) => $v !== '' && $v !== null && $v !== 0)))) ?>">Export filtered CSV</a>
     </div>
   <?php endif; ?>

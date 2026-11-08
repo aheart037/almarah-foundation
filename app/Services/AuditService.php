@@ -43,6 +43,25 @@ final class AuditService
         }
     }
 
+    /**
+     * Like log(), but a failed write throws. Call inside a transaction for money-affecting or
+     * permission-affecting actions so the change and its audit record commit (or roll back) together.
+     *
+     * @param array<string,mixed> $metadata
+     */
+    public function logRequired(string $action, string $entityType = '', string|int|null $entityId = null, array $metadata = [], ?int $userId = null): void
+    {
+        $this->db->insert('audit_logs', [
+            'user_id'           => $userId,
+            'action'            => $action,
+            'entity_type'       => $entityType !== '' ? $entityType : null,
+            'entity_id'         => $entityId === null ? null : (string) $entityId,
+            'safe_metadata_json'=> json_encode($this->logger->redact($metadata), JSON_UNESCAPED_SLASHES) ?: '{}',
+            'ip_address'        => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent'        => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+        ]);
+    }
+
     /** @return array<int,array<string,mixed>> */
     public function forUser(int $userId, int $limit = 50): array
     {

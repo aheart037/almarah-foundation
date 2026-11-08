@@ -13,8 +13,10 @@ use App\Http\Controllers\Admin\CampaignController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DonationController;
+use App\Http\Controllers\Admin\DonationCertificateController;
 use App\Http\Controllers\Admin\DonationReviewController;
 use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\LedgerController;
 use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\InboxController;
@@ -106,21 +108,23 @@ return static function (Router $router) use ($adminContent, $adminContentCsrf, $
     $router->post('/admin/finance/sync-pending', [FinanceController::class, 'syncPending'], $canCsrf('finance.manage'), 'admin.finance.sync');
     $router->get('/admin/finance/reconciliations/{id}', [FinanceController::class, 'showRun'], $can('finance.manage'), 'admin.finance.run');
     $router->post('/admin/finance/items/{id}/resolve', [FinanceController::class, 'resolveItem'], $canCsrf('finance.manage'), 'admin.finance.resolve');
-    $router->get('/admin/finance/offline', [FinanceController::class, 'offlineForm'], $can('finance.manage'), 'admin.finance.offline');
-    $router->post('/admin/finance/offline', [FinanceController::class, 'offlineStore'], $canCsrf('finance.manage'), 'admin.finance.offline.store');
+    $router->get('/admin/finance/offline', [FinanceController::class, 'offlineForm'], $can('donations.record'), 'admin.finance.offline');
+    $router->post('/admin/finance/offline', [FinanceController::class, 'offlineStore'], $canCsrf('donations.record'), 'admin.finance.offline.store');
     $router->get('/admin/finance/donations/{id}/adjust', [FinanceController::class, 'adjustForm'], $can('finance.manage'), 'admin.finance.adjust');
     $router->post('/admin/finance/donations/{id}/adjust', [FinanceController::class, 'adjustStore'], $canCsrf('finance.manage'), 'admin.finance.adjust.store');
     $router->post('/admin/finance/donations/{id}/receipt', [FinanceController::class, 'sendReceipt'], $canCsrf('finance.manage'), 'admin.finance.receipt');
+
+    $router->get('/admin/ledger', [LedgerController::class, 'index'], $can('donations.view'), 'admin.ledger');
 
     // --- donations and payments ---------------------------------------------
     $router->get('/admin/donations', [DonationController::class, 'index'], $can('donations.view'), 'admin.donations');
     $router->get('/admin/donations/export', [DonationController::class, 'export'], $can('reports.view'), 'admin.donations.export');
     $router->get('/admin/donations/{id}', [DonationController::class, 'show'], $can('donations.view'), 'admin.donations.show');
-    $router->post('/admin/donations/{id}/review', [DonationReviewController::class, 'decide'], [AuthMiddleware::class, StaffMiddleware::class, CsrfMiddleware::class], 'admin.donations.review');
+    $router->post('/admin/donations/{id}/review', [DonationReviewController::class, 'decide'], $canCsrf('donations.verify'), 'admin.donations.review');
+    $router->get('/admin/donations/{id}/certificate', [DonationCertificateController::class, 'download'], $can('donations.view'), 'admin.donations.certificate');
+    $router->post('/admin/donations/{id}/certificate/generate', [DonationCertificateController::class, 'generate'], $canCsrf('donations.verify'), 'admin.donations.certificate.generate');
+    $router->post('/admin/donations/{id}/certificate/email', [DonationCertificateController::class, 'retryEmail'], $canCsrf('donations.verify'), 'admin.donations.certificate.email');
     $router->get('/admin/donations/{id}/proof', [DonationReviewController::class, 'proof'], $can('donations.view'), 'admin.donations.proof');
-    $router->get('/admin/donations/{id}/documents/{kind}', [DonationReviewController::class, 'document'], $can('donations.view'), 'admin.donations.document');
-    $router->post('/admin/donations/{id}/certificate', [DonationReviewController::class, 'certificate'], $superCsrf, 'admin.donations.certificate');
-    $router->post('/admin/donations/{id}/correct', [DonationReviewController::class, 'correct'], $superCsrf, 'admin.donations.correct');
     $router->post('/admin/donations/{id}/reconcile', [DonationController::class, 'reconcile'], $canCsrf('donations.manage'), 'admin.donations.reconcile');
     $router->post('/admin/donations/{id}/refund', [DonationController::class, 'refund'], $canCsrf('donations.manage'), 'admin.donations.refund');
     $router->post('/admin/transactions/{id}/reconcile', [DonationController::class, 'reconcileTransaction'], $canCsrf('donations.manage'), 'admin.transactions.reconcile');

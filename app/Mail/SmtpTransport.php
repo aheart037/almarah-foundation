@@ -92,7 +92,8 @@ final class SmtpTransport implements TransportInterface
         string $toName,
         string $subject,
         string $htmlBody,
-        string $textBody
+        string $textBody,
+        array $attachments = []
     ): bool {
         if ((string) ($this->config['host'] ?? '') === '') {
             throw new RuntimeException('SMTP host is not configured.');
@@ -107,6 +108,9 @@ final class SmtpTransport implements TransportInterface
             $mailer->isHTML(true);
             $mailer->Body    = $htmlBody;
             $mailer->AltBody = $textBody !== '' ? $textBody : strip_tags($htmlBody);
+            foreach ($attachments as $file) {
+                $mailer->addAttachment((string) $file['path'], (string) $file['name'], 'base64', 'application/pdf');
+            }
 
             $sent = $mailer->send();
             $mailer->smtpClose();

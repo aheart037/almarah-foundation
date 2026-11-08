@@ -282,6 +282,43 @@ final class UploadService
         return dirname(__DIR__, 2) . '/storage';
     }
 
+    /**
+     * Bank slip / deposit slip: PNG or JPG only, 2 MB maximum, verified as a real image,
+     * stored privately under a random name (never web-accessible).
+     */
+    public function storePaymentProof(array $file): string
+    {
+        $this->assertUploadOk($file);
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > 2097152) {
+            throw new InvalidArgumentException('The payment slip must be a PNG or JPG smaller than 2 MB.');
+        }
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            throw new InvalidArgumentException('That file could not be read as an upload.');
+        }
+        $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
+        $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png'][$mime] ?? null;
+        $given = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        if ($ext === null || !in_array($given, ['jpg', 'jpeg', 'png'], true) || @getimagesize($tmp) === false) {
+            $this->logger->security('Rejected payment slip upload', ['mime' => $mime, 'extension' => $given]);
+            throw new InvalidArgumentException('The payment slip must be a PNG or JPG smaller than 2 MB.');
+        }
+        $dir = $this->storageRoot() . '/private/payment-proofs';
+        if (!is_dir($dir) && !@mkdir($dir, 0770, true) && !is_dir($dir)) {
+            throw new RuntimeException('Unable to create the upload directory.');
+        }
+        if (!is_file($dir . '/.htaccess')) {
+            @file_put_contents($dir . '/.htaccess', "Require all denied\n");
+        }
+        $name = gmdate('Ymd') . '-' . Str::randomHex(16) . '.' . $ext;
+        if (!move_uploaded_file($tmp, $dir . '/' . $name)) {
+            throw new RuntimeException('Unable to store the uploaded file.');
+        }
+        @chmod($dir . '/' . $name, 0640);
+        return 'private/payment-proofs/' . $name;
+    }
+
     /** Absolute path of a document stored by storeDocument(), or null when missing/invalid. */
     public function privatePath(?string $relativePath): ?string
     {

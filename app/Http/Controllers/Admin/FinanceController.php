@@ -161,7 +161,7 @@ final class FinanceController extends Controller
             'pageTitle' => 'Record an offline donation',
             'purposes'  => $this->db->select('SELECT id, name FROM donation_purposes ORDER BY sort_order, name'),
             'sources'   => FinanceService::OFFLINE_SOURCES,
-            'banks'     => $this->db->select("SELECT id, bank_name, account_number FROM bank_accounts WHERE status = 'active' ORDER BY is_international, sort_order"),
+            'banks'     => $this->db->select("SELECT id, bank_name, account_number, currency FROM bank_accounts WHERE status = 'published' ORDER BY is_international, sort_order"),
         ], 'layouts/admin');
     }
 

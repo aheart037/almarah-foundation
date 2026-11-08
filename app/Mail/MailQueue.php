@@ -376,7 +376,8 @@ final class MailQueue
                 (string) ($job['recipient_name'] ?? ''),
                 (string) ($job['subject'] !== '' ? $job['subject'] : $rendered['subject']),
                 $rendered['html'],
-                $rendered['text']
+                $rendered['text'],
+                $this->attachmentsFor($data)
             );
 
             $this->db->run(
@@ -450,6 +451,32 @@ final class MailQueue
         $message = preg_replace('/\b\d{13,19}\b/', '[card-like]', $message) ?? $message;
         $message = preg_replace('/(password[=:\s]+)[^\s,;]+/i', '$1[REDACTED]', $message) ?? $message;
         return mb_substr($message, 0, 500);
+    }
+
+    /**
+     * Attachments are stored as `attachments_json` (relative private paths). Only files under
+     * storage/private/ are ever attached; a missing file fails the job with a clear message.
+     *
+     * @return array<int,array{path:string,name:string}>
+     */
+    private function attachmentsFor(array $data): array
+    {
+        $list = json_decode((string) ($data['attachments_json'] ?? ''), true);
+        if (!is_array($list)) {
+            return [];
+        }
+        $root = realpath(dirname(__DIR__, 2) . '/storage/private');
+        $out = [];
+        foreach ($list as $item) {
+            $rel = (string) ($item['path'] ?? '');
+            $abs = $root !== false && str_starts_with($rel, 'private/') && !str_contains($rel, '..')
+                ? realpath(dirname(__DIR__, 2) . '/storage/' . $rel) : false;
+            if ($abs === false || !str_starts_with($abs, $root . DIRECTORY_SEPARATOR) || !is_file($abs)) {
+                throw new \RuntimeException('Attachment file is missing.');
+            }
+            $out[] = ['path' => $abs, 'name' => preg_replace('/[^A-Za-z0-9._-]/', '_', (string) ($item['name'] ?? basename($abs))) ?: 'attachment.pdf'];
+        }
+        return $out;
     }
 
     /** Never persist rendered bodies inside the job payload. */

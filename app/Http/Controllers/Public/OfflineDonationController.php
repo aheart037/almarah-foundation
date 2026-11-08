@@ -47,7 +47,7 @@ final class OfflineDonationController extends Controller
         $this->session->set('donate.transfer_nonces', array_slice($nonces, -8, null, true));
         return $this->render('public/donate/transfer', [
             'pageTitle' => 'Report a transfer', 'bodyClass' => 'page-donate',
-            'currencies' => $currencies, 'currencyOptions' => DonationCurrencies::OPTIONS, 'selectedCurrency' => $selected, 'transferNonce' => $nonce,
+            'banks' => $this->cms->bankAccounts(), 'currencies' => $currencies, 'currencyOptions' => DonationCurrencies::OPTIONS, 'selectedCurrency' => $selected, 'transferNonce' => $nonce,
         ]);
     }
 
@@ -80,6 +80,32 @@ final class OfflineDonationController extends Controller
             return $this->flashFormStateTo(['form' => $e->getMessage()], $request->all(), '/donate/transfer');
         }
         $this->flashSuccess('Your donation has been submitted. Reference: ' . $result['reference'] . '. No verified receipt will be issued until staff confirmation.');
+        return $this->redirect('/donate/transfer');
+    }
+
+    public function resubmitForm(Request $request): Response
+    {
+        $ref = trim((string) $request->input('ref', ''));
+        return $this->render('public/donate/resubmit', [
+            'pageTitle' => 'Correct a rejected transfer', 'bodyClass' => 'page-donate', 'ref' => $ref,
+            'reason' => $ref !== '' ? $this->review->lastRejection($ref) : null,
+            'banks' => $this->cms->bankAccounts(), 'currencies' => $this->currencies(), 'currencyOptions' => DonationCurrencies::OPTIONS,
+        ]);
+    }
+
+    public function resubmit(Request $request): Response
+    {
+        $limiter = app(\App\Core\RateLimiter::class);
+        $key = 'offline-resubmit:' . $request->ip();
+        if ($limiter->tooManyAttempts($key, 5)) return Response::text('Please try again later.', 429);
+        $limiter->hit($key, 300);
+        $to = '/donate/transfer/resubmit?ref=' . rawurlencode((string) $request->input('reference', ''));
+        try {
+            $r = $this->review->resubmit((string) $request->input('reference', ''), (string) $request->input('donor_email', ''), $request->all(), $request->file('payment_proof'));
+        } catch (InvalidArgumentException $e) {
+            return $this->flashFormStateTo(['form' => $e->getMessage()], $request->all(), $to);
+        }
+        $this->flashSuccess('Thank you. ' . $r['reference'] . ' was resubmitted and is pending verification again.');
         return $this->redirect('/donate/transfer');
     }
 }

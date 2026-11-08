@@ -40,6 +40,8 @@ return static function (Router $router): void {
     $router->post('/donate/estimate', [DonateController::class, 'estimate'], [CsrfMiddleware::class], 'donate.estimate');
     $router->get('/donate/transfer', [OfflineDonationController::class, 'form'], [], 'donate.transfer');
     $router->post('/donate/transfer', [OfflineDonationController::class, 'submit'], [CsrfMiddleware::class], 'donate.transfer.submit');
+    $router->get('/donate/transfer/resubmit', [OfflineDonationController::class, 'resubmitForm'], [], 'donate.transfer.resubmit');
+    $router->post('/donate/transfer/resubmit', [OfflineDonationController::class, 'resubmit'], [CsrfMiddleware::class], 'donate.transfer.resubmit.submit');
 
     // Public forms (JSON for the site's AJAX handler, redirect + flash otherwise).
     $router->post('/forms/contact', [FormsController::class, 'contact'], [CsrfMiddleware::class], 'forms.contact');

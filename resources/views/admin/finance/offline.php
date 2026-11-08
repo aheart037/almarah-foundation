@@ -50,7 +50,20 @@
     <div class="field">
       <label for="bank_reference">Bank / transaction reference</label>
       <input class="input" id="bank_reference" name="bank_reference" maxlength="120" value="<?= old('bank_reference') ?>" placeholder="e.g. Meezan 02160113593207 · FT24ABC123">
-      <small class="muted">Into: <?php foreach ($banks as $b): ?><?= e((string) $b['bank_name']) ?> (…<?= e(substr((string) $b['account_number'], -4)) ?>) <?php endforeach; ?></small>
+      <small class="muted">For cash, enter the bank deposit slip number.</small>
+    </div>
+    <div class="field">
+      <label for="bank_account_id">Bank account<span class="req">*</span></label>
+      <select class="select-field" id="bank_account_id" name="bank_account_id" required>
+        <option value="">Select…</option>
+        <?php foreach ($banks as $b): ?><option value="<?= (int) $b['id'] ?>" <?= (int) old('bank_account_id') === (int) $b['id'] ? 'selected' : '' ?>><?= e((string) $b['bank_name'] . ' – ' . (string) $b['currency'] . ' – …' . substr((string) $b['account_number'], -4)) ?></option><?php endforeach; ?>
+      </select>
+      <small class="muted">Cash: the account it was deposited into. Currency must match.</small>
+    </div>
+    <div class="field">
+      <label for="deposited_at">Cash deposit date</label>
+      <input class="input" type="date" id="deposited_at" name="deposited_at" max="<?= gmdate('Y-m-d') ?>" value="<?= e(old('deposited_at')) ?>">
+      <small class="muted">Required when received via Cash (collected and deposited in the same entry).</small>
     </div>
     <div class="field">
       <label for="purpose_id">Purpose</label>
@@ -98,8 +111,8 @@
     </div>
   </div>
 
-  <div class="field"><label>Payment proof (PDF/JPG/PNG, 5 MB maximum)
-    <input type="file" name="payment_proof" accept=".pdf,.jpg,.jpeg,.png"></label></div>
+  <div class="field"><label>Bank / deposit slip<span class="req">*</span> (PNG or JPG, 2 MB maximum)
+    <input type="file" name="payment_proof" accept=".jpg,.jpeg,.png" required></label></div>
   <?php require __DIR__ . '/../../partials/donation-extra-fields.php'; ?>
   <p>Receipt email is available only after final verification.</p>
 

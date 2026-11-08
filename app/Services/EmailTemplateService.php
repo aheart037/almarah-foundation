@@ -156,6 +156,7 @@ final class EmailTemplateService
             'donation.pending'           => 'Your donation is being processed ({{reference}})',
             'donation.failed'            => 'Your donation could not be completed ({{reference}})',
             'donation.cancelled'         => 'Your donation was cancelled ({{reference}})',
+            'donation.certificate'       => 'Your tax exemption certificate ({{reference}})',
             'donation.refunded'          => 'Your donation has been refunded ({{reference}})',
             'admin.payment_alert'        => '[Action needed] Payment issue on {{reference}}',
             default                      => '{{appName}} notification',

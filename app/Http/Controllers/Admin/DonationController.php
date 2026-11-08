@@ -83,6 +83,12 @@ final class DonationController extends Controller
             abort(404, 'Donation not found.');
         }
 
+        $certService = \app(\App\Services\DonationCertificateService::class);
+        $certificate = $certService->find((int) $donation['id']);
+        if ($certificate && $certificate['status'] === 'generated') {
+            $certificate = $certService->syncEmailStatus($certificate);
+        }
+
         $transactions = $this->payments->forDonation((int) $donation['id']);
 
         $callbacks = [];
@@ -105,6 +111,9 @@ final class DonationController extends Controller
             'reviewHistory' => \app(\App\Services\DonationReviewService::class)->history((int) $donation['id']),
             'duplicates' => \app(\App\Services\DonationReviewService::class)->possibleDuplicates($donation),
             'emailHistory' => $this->db->select("SELECT id, event_key, recipient_email, status, attempts, last_error, sent_at, created_at FROM email_jobs WHERE dedupe_key LIKE :key ORDER BY id DESC", ['key' => 'donation.receipt:' . $donation['id'] . '%']),
+            'bank' => $donation['bank_account_id'] ? $this->db->selectOne('SELECT bank_name, account_title, currency FROM bank_accounts WHERE id=:id', ['id' => $donation['bank_account_id']]) : null,
+            'certificate' => $certificate,
+            'certificateBlock' => $certificate ? null : \app(\App\Services\DonationCertificateService::class)->ineligibleReason($donation),
             'reviewStages' => \app(\App\Services\DonationReviewService::class)->stages(),
             'staffIdentity' => $this->db->selectOne('SELECT creator.email AS created_by, verifier.email AS verified_by FROM donations d LEFT JOIN users creator ON creator.id=d.recorded_by LEFT JOIN users verifier ON verifier.id=d.verified_by WHERE d.id=:id', ['id' => $donation['id']]),
         ], 'layouts/admin');

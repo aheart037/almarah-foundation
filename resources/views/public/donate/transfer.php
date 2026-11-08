@@ -17,12 +17,16 @@
     <p><label>Transaction date * <input class="input" type="date" name="received_at" max="<?= gmdate('Y-m-d') ?>" required value="<?= old('received_at', gmdate('Y-m-d')) ?>"></label></p>
     <p><label>Payment method * <select class="select-field" name="source"><option value="bank_transfer">Bank transfer</option><option value="online_transfer">Online transfer</option><option value="other">Other</option></select></label></p>
     <p><label>Transaction reference (if provided) <input class="input" name="bank_reference" maxlength="120" value="<?= old('bank_reference') ?>"></label></p>
-    <p><label>Payment proof (PDF, JPG or PNG; maximum 5 MB) <input type="file" name="payment_proof" accept=".pdf,.jpg,.jpeg,.png"></label></p>
+    <p><label>Bank account you paid into * <select class="select-field" name="bank_account_id" required><option value="">Select…</option>
+      <?php foreach ($banks as $b): ?><option value="<?= (int) $b['id'] ?>"<?= (int) old('bank_account_id') === (int) $b['id'] ? ' selected' : '' ?>><?= e((string) $b['bank_name'] . ' – ' . (string) ($b['currency'] ?? 'PKR') . ' – …' . substr((string) ($b['account_number'] ?? $b['iban'] ?? ''), -4)) ?></option><?php endforeach; ?>
+    </select></label></p>
+    <p><label>Bank transfer / deposit slip * (PNG or JPG, maximum 2 MB) <input type="file" name="payment_proof" accept=".jpg,.jpeg,.png" required></label></p>
     <p><label>Additional notes <textarea class="input" name="note" maxlength="255"><?= old('note') ?></textarea></label></p>
     <?php require __DIR__ . '/../../partials/donation-extra-fields.php'; ?>
     <button class="btn btn-primary" type="submit">Submit for review</button>
     <p><small>Reporting a transfer does not confirm receipt. Staff verify the funds before recording a completed donation.</small></p>
   </form>
+  <p><small>Was your report rejected? <a href="<?= e(base_url('donate/transfer/resubmit')) ?>">Correct and resubmit it</a>.</small></p>
 </main>
 
 <script>document.querySelector('form[action$="donate/transfer"]').addEventListener('submit',function(){if(!this.reportValidity())return;var button=this.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Sending report…';});</script>

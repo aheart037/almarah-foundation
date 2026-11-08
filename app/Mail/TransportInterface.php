@@ -11,6 +11,7 @@ namespace App\Mail;
 interface TransportInterface
 {
     /**
+     * @param array<int,array{path:string,name:string}> $attachments absolute file paths (already validated by the caller)
      * @return bool true when the message was accepted by the server
      * @throws \RuntimeException on transport failure (message is safe to log)
      */
@@ -19,7 +20,8 @@ interface TransportInterface
         string $toName,
         string $subject,
         string $htmlBody,
-        string $textBody
+        string $textBody,
+        array $attachments = []
     ): bool;
 
     /** Verify credentials/host reachability without sending. */

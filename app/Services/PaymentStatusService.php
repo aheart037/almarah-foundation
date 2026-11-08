@@ -157,6 +157,8 @@ final class PaymentStatusService
                 $this->sendReceipt($confirmed, (string) ($transaction['gateway_code'] ?? '')));
             $this->attemptNotification('fundraiser_owner', $confirmed, fn () =>
                 $this->notifyFundraiserOwner($confirmed));
+            $this->attemptNotification('certificate', $confirmed, fn () =>
+                \app(DonationCertificateService::class)->issue((int) $confirmed['id']));
 
             return ['changed' => true, 'status' => 'completed', 'reason' => 'verified_completed'];
         }

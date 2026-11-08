@@ -250,6 +250,18 @@ $commands['mail:stats'] = static function () use ($app): int {
 
 // ------------------------------------------------------------------ payments
 
+$commands['certificates:issue'] = static function (array $args) use ($app): int {
+    // Retries failed certificate generation/emails. Pass --since=YYYY-MM-DD to also issue missing certificates
+    // for confirmed donations created on/after that date (never done implicitly: it emails donors).
+    $since = null;
+    foreach ($args as $a) {
+        if (str_starts_with($a, '--since=') && preg_match('/^\d{4}-\d{2}-\d{2}$/', substr($a, 8))) { $since = substr($a, 8); }
+    }
+    $stats = $app->make(\App\Services\DonationCertificateService::class)->sweep(50, $since);
+    echo sprintf("issued=%d retried=%d\n", $stats['issued'], $stats['retried']);
+    return 0;
+};
+
 $commands['payments:reconcile'] = static function (array $args) use ($app): int {
     /** @var \App\Services\DonationService $donations */
     $donations = $app->make(\App\Services\DonationService::class);

@@ -201,21 +201,23 @@ final class SiteContentSeeder
             }
         }
         $perms['reports.export'] = 'Export reports';
+        $perms['donations.record'] = 'Record offline donations';
+        $perms['donations.verify'] = 'Verify or reject donations (finance)';
         $perms['users.delete'] = 'Delete users (reserved: accounts can only be suspended)';
         $perms['donations.delete'] = 'Delete donations (reserved: financial records cannot be deleted)';
         $perms['finance.delete'] = 'Delete financial records (reserved: records cannot be deleted)';
         $roles = [
             'super_admin'       => array_keys($perms),
-            'admin'             => ['dashboard.view', 'content.manage', 'donations.view', 'donations.manage', 'volunteers.manage', 'forms.view', 'reports.view', 'logs.view', 'users.view', 'users.create', 'users.edit', 'roles.view'],
-            'finance_manager'   => ['dashboard.view', 'donations.view', 'donations.manage', 'reports.view', 'finance.manage', 'logs.view'],
+            'admin'             => ['dashboard.view', 'content.manage', 'donations.view', 'donations.manage', 'donations.record', 'volunteers.manage', 'forms.view', 'reports.view', 'logs.view', 'users.view', 'users.create', 'users.edit', 'roles.view'],
+            'finance_manager'   => ['dashboard.view', 'donations.view', 'donations.manage', 'donations.record', 'donations.verify', 'reports.view', 'finance.manage', 'logs.view'],
             'content_manager'   => ['dashboard.view', 'content.manage', 'forms.view'],
             'volunteer_manager' => ['dashboard.view', 'volunteers.manage', 'forms.view'],
-            'initial_reviewer' => ['dashboard.view', 'donations.view'],
-            'initial_review' => ['dashboard.view', 'donations.view'],
+            'initial_reviewer' => ['dashboard.view', 'donations.view', 'donations.record'],
+            'initial_review' => ['dashboard.view', 'donations.view', 'donations.record'],
             'verification_officer' => ['dashboard.view', 'donations.view'],
             'viewer' => ['dashboard.view'],
             'grant_manager' => ['dashboard.view','grants.view','grants.create','grants.edit','grant_assignments.view','grant_assignments.manage','users.view'],
-            'donation_manager' => ['dashboard.view','donations.view','donations.manage','donors.view'],
+            'donation_manager' => ['dashboard.view','donations.view','donations.manage','donations.record','donors.view'],
             'reporting_officer' => ['dashboard.view','reports.view','reports.export'],
         ];
         $n = 0;
