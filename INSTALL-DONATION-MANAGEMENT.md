@@ -50,3 +50,8 @@ For a brand-new site use the built-in installer at /setup (it runs every migrati
 
 ## Website forms (contact, volunteer, newsletter)
 The Contact, Become-a-Volunteer and Newsletter pages now show real forms (the old WordPress `[forminator_form]` placeholders were replaced), and the footer newsletter box now posts to the correct address. Every submission is saved and appears in the admin sidebar under **Inbox** (Contact messages, Newsletter subscribers, Volunteer applications). Needs no database changes.
+
+## V3.6 additions
+- **Create user**: set a password now (or email a setup link), pick the role(s), and see a two-column table of every role with the privileges it grants. Only a Super Admin can assign roles. Users can change their password any time with "Forgot password".
+- **Bank ledgers**: new card layout, KPI strip, cleaner filters and a mobile-friendly table. New files `assets/css/bank-ledger.css`, `assets/css/admin-users.css`.
+- No database changes in V3.6 (still migrations 0019 and 0020).

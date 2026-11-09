@@ -189,36 +189,90 @@ final class UserController extends Controller
 
     public function createForm(Request $request): Response
     {
-        return $this->render('admin/users/create', ['pageTitle'=>'Create user'], 'layouts/admin');
+        return $this->render('admin/users/create', [
+            'pageTitle' => 'Create user', 'roleSummaries' => $this->rbac->roleSummaries(), 'canAssignRoles' => $this->auth->isSuperAdmin(),
+        ], 'layouts/admin');
     }
 
     public function create(Request $request): Response
     {
-        $first = trim((string)$request->input('first_name',''));
-        $last = trim((string)$request->input('last_name',''));
-        $email = mb_strtolower(trim((string)$request->input('email','')));
-        if ($first === '' || mb_strlen($first)>100 || $last === '' || mb_strlen($last)>100 || !filter_var($email,FILTER_VALIDATE_EMAIL) || mb_strlen($email)>191) {
-            $this->flashError('Enter valid names and an email address.');
-            return $this->redirect('/admin/users/create');
+        $first = trim((string) $request->input('first_name', ''));
+        $last = trim((string) $request->input('last_name', ''));
+        $email = mb_strtolower(trim((string) $request->input('email', '')));
+        $phone = trim((string) $request->input('phone', ''));
+        // The new form always posts password_mode; an older client without it keeps the previous behaviour
+        // (emailed setup link, role optional).
+        $legacy = $request->input('password_mode') === null;
+        $mode = $legacy || (string) $request->input('password_mode') === 'email' ? 'email' : 'set';
+        $password = (string) $request->input('password', '');
+        $roles = $request->input('roles', []);
+        $fail = function (string $message) use ($request): Response {
+            return $this->flashFormStateTo(['form' => $message], $request->all(), base_url('admin/users/create'));
+        };
+
+        if ($first === '' || mb_strlen($first) > 100 || $last === '' || mb_strlen($last) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 191 || mb_strlen($phone) > 40) {
+            return $fail('Enter valid names and an email address.');
         }
         if ($this->users->findByEmail($email) !== null) {
-            $this->flashError('This email address is already in use.');
-            return $this->redirect('/admin/users/create');
+            return $fail('This email address is already in use.');
+        }
+        if ($mode === 'set') {
+            if (mb_strlen($password) < 10 || mb_strlen($password) > 200 || !preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
+                return $fail('The password must be at least 10 characters and contain letters and numbers.');
+            }
+            if (!hash_equals($password, (string) $request->input('password_confirmation', ''))) {
+                return $fail('The two passwords do not match.');
+            }
+        }
+        $roleNames = [];
+        if ($this->auth->isSuperAdmin()) {
+            if (!is_array($roles) || array_filter($roles, static fn ($r): bool => !is_string($r))) {
+                return $fail('Invalid role selection.');
+            }
+            $roleNames = array_values(array_unique($roles));
+            $known = array_column($this->rbac->roleSummaries(), 'name');
+            foreach ($roleNames as $name) {
+                if (!in_array($name, $known, true)) {
+                    return $fail('Unknown role selection.');
+                }
+            }
+            if (!$roleNames && !$legacy) {
+                return $fail('Select at least one role for this user.');
+            }
         }
         try {
-            $id = $this->db->transaction(function () use ($first,$last,$email): int {
-                $id = $this->users->create(['first_name'=>$first,'last_name'=>$last,'email'=>$email,
-                    'password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT), 'status'=>'active']);
-                $this->audit->logRequired('user.created','user',$id,['email_hash'=>hash('sha256',$email)],(int)$this->auth->id());
+            $id = $this->db->transaction(function () use ($first, $last, $email, $phone, $mode, $password): int {
+                $id = $this->users->create([
+                    'first_name' => $first, 'last_name' => $last, 'email' => $email,
+                    'password_hash' => password_hash($mode === 'set' ? $password : bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
+                    'status' => 'active', 'email_verified_at' => $mode === 'set' ? gmdate('Y-m-d H:i:s') : null,
+                ]);
+                if ($phone !== '') {
+                    $this->users->update($id, ['phone' => $phone]);
+                }
+                $this->audit->logRequired('user.created', 'user', $id, ['email_hash' => hash('sha256', $email), 'password_mode' => $mode], (int) $this->auth->id());
                 return $id;
             });
         } catch (\PDOException $e) {
-            $this->flashError('User could not be created; check that this email is available.');
-            return $this->redirect('/admin/users/create');
+            return $fail('User could not be created; check that this email is available.');
         }
-        $sent = $this->auth->sendPasswordReset($email);
-        $this->flashSuccess($sent ? 'User created. Password setup requested; check the email queue before sharing access. Assign roles on the user page.' : 'User created, but the password setup email could not be sent. Retry from the user page.');
-        return $this->redirect('/admin/users/'.$id);
+        $notes = [];
+        if ($roleNames) {
+            try {
+                $this->rbac->assignRoles($id, $roleNames, (int) $this->auth->id());
+            } catch (DomainException $e) {
+                $notes[] = 'Roles were NOT assigned: ' . $e->getMessage();
+            }
+        } elseif (!$this->auth->isSuperAdmin()) {
+            $notes[] = 'Only a Super Admin can assign roles; ask one to do it on the user page.';
+        }
+        if ($mode === 'email') {
+            $notes[] = $this->auth->sendPasswordReset($email) ? 'A password setup link was emailed.' : 'The setup email could not be queued; use "Force password reset" on the user page.';
+        } else {
+            $notes[] = 'The password was set. The user can change it at any time with "Forgot password" on the login page.';
+        }
+        $this->flashSuccess('User created. ' . implode(' ', $notes));
+        return $this->redirect('/admin/users/' . $id);
     }
 
     public function edit(Request $request): Response

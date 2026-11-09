@@ -281,7 +281,7 @@ $login(23);
 ok(hit($router, $app, '/admin/offline-donations') === 403, 'non-staff cannot open offline entries');
 $login(null);
 ok(in_array(hit($router, $app, '/admin/offline-donations'), [301, 302, 401, 403], true), 'guest cannot open offline entries');
-ok(trim((string) file_get_contents(__DIR__ . '/../VERSION')) === 'V3.5 — Almarah Foundation V3.5', 'version is V3.5');
+ok(trim((string) file_get_contents(__DIR__ . '/../VERSION')) === 'V3.6 — Almarah Foundation V3.6', 'version is V3.6');
 
 // --- 11. site installed in a folder named "donate" (https://host/donate/donate/transfer) --------------------------
 \App\Core\BasePath::boot('https://softex.pk/donate');

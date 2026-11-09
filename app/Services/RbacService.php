@@ -23,6 +23,25 @@ final class RbacService
         return $this->db->select('SELECT * FROM permissions ORDER BY group_name,name');
     }
 
+    /**
+     * Roles with their privileges, for the "which role can do what" table.
+     * @return list<array{id:int,name:string,label:string,description:string,all:bool,groups:array<string,list<string>>}>
+     */
+    public function roleSummaries(): array
+    {
+        $rows = $this->db->select('SELECT rp.role_id, p.group_name, p.label, p.name FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id ORDER BY p.group_name, p.label');
+        $byRole = [];
+        foreach ($rows as $r) {
+            $byRole[(int) $r['role_id']][(string) ($r['group_name'] ?: 'general')][] = (string) ($r['label'] ?: $r['name']);
+        }
+        $out = [];
+        foreach ($this->db->select('SELECT id, name, label, description FROM roles ORDER BY (name = \'super_admin\') DESC, label') as $r) {
+            $out[] = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'label' => (string) $r['label'],
+                'description' => (string) ($r['description'] ?? ''), 'all' => $r['name'] === 'super_admin', 'groups' => $byRole[(int) $r['id']] ?? []];
+        }
+        return $out;
+    }
+
     public function role(int $id): ?array
     {
         return $this->db->selectOne('SELECT * FROM roles WHERE id=:id', ['id'=>$id]);

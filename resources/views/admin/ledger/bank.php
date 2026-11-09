@@ -4,51 +4,63 @@ $labels = ['pending_verification' => 'Pending verification', 'verified' => 'Veri
 $badge = ['verified' => 'badge badge-green', 'pending_verification' => 'badge badge-amber', 'rejected' => 'badge badge-red'];
 $bid = (int) $bank['id'];
 $query = array_filter($filters, static fn ($v): bool => $v !== '');
+$page_url = static fn (int $p): string => '?' . http_build_query(array_merge($query, ['page' => $p]));
 ?>
+<link rel="stylesheet" href="<?= e(asset('assets/css/bank-ledger.css')) ?>">
 <div class="dash-head">
-  <div><h1><?= e((string) $bank['bank_name']) ?> ledger</h1>
-    <p class="sub"><?= e(trim((string) ($bank['account_title'] ?? '') . (!empty($bank['account_number']) ? ' · ' . $bank['account_number'] : ''))) ?: 'Payments made through the online payment gateway' ?>. Times are UTC.</p></div>
+  <div>
+    <div class="bl-crumb"><a href="<?= e(base_url('admin/ledger/banks')) ?>">Bank ledgers</a> &rsaquo; <?= e((string) $bank['bank_name']) ?></div>
+    <h1><?= e((string) $bank['bank_name']) ?> ledger</h1>
+    <p class="sub"><?php if ($bid === 0): ?>Payments made through the online payment gateway.<?php else: ?><?= e(trim((string) ($bank['account_title'] ?? ''))) ?><?= !empty($bank['account_number']) ? ' · Account ' . e((string) $bank['account_number']) : '' ?><?= !empty($bank['iban']) ? ' · IBAN ' . e((string) $bank['iban']) : '' ?><?php endif; ?> · Times are UTC.</p>
+  </div>
   <div class="sr-actions">
     <a class="btn btn-light" href="<?= e(base_url('admin/ledger/banks')) ?>">&larr; All banks</a>
-    <?php if (isset($can) && $can('reports.view')): ?><a class="btn btn-primary" href="<?= e(base_url('admin/ledger/banks/' . $bid . '/export' . ($query ? '?' . http_build_query($query) : ''))) ?>">Download CSV</a><?php endif; ?>
+    <?php if (isset($can) && $can('reports.view')): ?><a class="btn btn-brand" href="<?= e(base_url('admin/ledger/banks/' . $bid . '/export' . ($query ? '?' . http_build_query($query) : ''))) ?>">Download CSV</a><?php endif; ?>
   </div>
 </div>
-<div class="stat-grid">
-  <?php foreach ($result['confirmed'] as $cur => $c): ?>
-    <div class="stat-card"><div class="k">Confirmed <?= e($cur) ?></div><div class="v"><?= e(money((int) $c['minor'], (string) $cur)) ?></div><div class="d"><?= (int) $c['n'] ?> transaction(s)</div></div>
-  <?php endforeach; ?>
-  <?php if (!$result['confirmed']): ?><div class="stat-card"><div class="k">Confirmed</div><div class="v">0</div></div><?php endif; ?>
-  <div class="stat-card"><div class="k">Records shown</div><div class="v"><?= (int) $result['total'] ?></div></div>
+
+<div class="bl-kpis">
+  <?php $first = true; foreach ($result['confirmed'] as $cur => $c): ?>
+    <div class="bl-kpi <?= $first ? 'accent' : '' ?>"><div class="k">Confirmed · <?= e($cur) ?></div><div class="v"><?= e(money((int) $c['minor'], (string) $cur)) ?></div><div class="d"><?= (int) $c['n'] ?> transaction<?= $c['n'] === 1 ? '' : 's' ?></div></div>
+  <?php $first = false; endforeach; ?>
+  <?php if (!$result['confirmed']): ?><div class="bl-kpi accent"><div class="k">Confirmed</div><div class="v">0</div><div class="d">None in this view</div></div><?php endif; ?>
+  <div class="bl-kpi"><div class="k">Records shown</div><div class="v"><?= (int) $result['total'] ?></div><div class="d">matching your filters</div></div>
 </div>
-<section class="panel">
-  <form class="toolbar" method="get" action="<?= e(base_url('admin/ledger/banks/' . $bid)) ?>">
-    <input class="input" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="Donor, reference, transaction ID, phone">
-    <select class="select-field" name="status" aria-label="Status"><option value="">Any status</option>
-      <?php foreach ($labels as $k => $l): ?><option value="<?= e($k) ?>" <?= $filters['status'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
-    <select class="select-field" name="mode" aria-label="Mode"><option value="">Any mode</option>
-      <?php foreach (\App\Services\BankLedgerService::MODES as $k => $l): ?><option value="<?= e($k) ?>" <?= $filters['mode'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
-    <input class="input" type="date" name="date_from" value="<?= e($filters['date_from']) ?>" aria-label="From">
-    <input class="input" type="date" name="date_to" value="<?= e($filters['date_to']) ?>" aria-label="To">
-    <button class="btn btn-light" type="submit">Filter</button>
-  </form>
-  <div class="table-wrap"><table class="table">
-    <thead><tr><th>Date &amp; time</th><th>Donor</th><th>Mode</th><th>Website reference</th><th>Bank transaction ID / slip no.</th><th class="num">Amount</th><th>Status</th><th>Verified</th></tr></thead>
+
+<form class="bl-filter" method="get" action="<?= e(base_url('admin/ledger/banks/' . $bid)) ?>">
+  <div style="grid-column:span 2"><label for="q">Search</label><input class="input" id="q" type="search" name="q" value="<?= e($filters['q']) ?>" placeholder="Donor, reference, transaction ID, phone"></div>
+  <div><label for="st">Status</label><select class="select-field" id="st" name="status"><option value="">Any status</option>
+    <?php foreach ($labels as $k => $l): ?><option value="<?= e($k) ?>" <?= $filters['status'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
+  <div><label for="md">Mode</label><select class="select-field" id="md" name="mode"><option value="">Any mode</option>
+    <?php foreach (\App\Services\BankLedgerService::MODES as $k => $l): ?><option value="<?= e($k) ?>" <?= $filters['mode'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
+  <div><label for="df">From</label><input class="input" id="df" type="date" name="date_from" value="<?= e($filters['date_from']) ?>"></div>
+  <div><label for="dt">To</label><input class="input" id="dt" type="date" name="date_to" value="<?= e($filters['date_to']) ?>"></div>
+  <div class="bl-actions"><button class="btn btn-brand" type="submit">Filter</button><a class="btn btn-light" href="<?= e(base_url('admin/ledger/banks/' . $bid)) ?>">Reset</a></div>
+</form>
+
+<section class="bl-panel">
+  <div class="bl-tablewrap"><table class="bl-table">
+    <thead><tr><th>Date &amp; time</th><th>Donor</th><th>Reference</th><th>Mode</th><th class="num">Amount</th><th>Status</th><th>Verified</th></tr></thead>
     <tbody>
     <?php foreach ($result['rows'] as $r): ?>
       <tr>
-        <td><?= e(dt((string) $r['txn_at'], 'j M Y')) ?><br><small class="muted"><?= e(dt((string) $r['txn_at'], 'H:i')) ?></small></td>
-        <td><?= $r['anonymous'] ? 'Anonymous' : e((string) $r['donor_name']) ?><br><small class="muted"><?= e((string) $r['donor_email']) ?> <?= e((string) $r['donor_phone']) ?></small></td>
-        <td><?= e(\App\Services\BankLedgerService::modeLabel((string) $r['source'], $r['gateway_code'])) ?></td>
-        <td><a href="<?= e(base_url('admin/donations/' . (int) $r['id'])) ?>"><?= e((string) $r['public_reference']) ?></a></td>
-        <td><?= e((string) ($r['bank_reference'] ?: $r['provider_txn'] ?: '—')) ?></td>
-        <td class="num"><?= e(money((int) $r['amount_minor'], (string) $r['currency'])) ?></td>
-        <td><span class="<?= e($badge[$r['ledger_status']] ?? 'badge badge-grey') ?>"><?= e($labels[$r['ledger_status']] ?? $r['ledger_status']) ?></span></td>
-        <td><?= $r['verified_at'] ? e(dt((string) $r['verified_at'], 'j M Y H:i')) . '<br><small class="muted">' . e((string) ($r['verified_by_email'] ?? '')) . '</small>' : '—' ?></td>
+        <td data-label="Date &amp; time"><span><?= e(dt((string) $r['txn_at'], 'j M Y')) ?><span class="bl-sub"><?= e(dt((string) $r['txn_at'], 'H:i')) ?> UTC</span></span></td>
+        <td data-label="Donor"><span><strong><?= $r['anonymous'] ? 'Anonymous' : e((string) $r['donor_name']) ?></strong><span class="bl-sub"><?= e(trim((string) $r['donor_email'] . ' ' . (string) $r['donor_phone'])) ?></span></span></td>
+        <td data-label="Reference"><span><a class="bl-ref" href="<?= e(base_url('admin/donations/' . (int) $r['id'])) ?>"><?= e((string) $r['public_reference']) ?></a>
+          <span class="bl-sub"><?= ($r['bank_reference'] || $r['provider_txn']) ? 'Txn / slip: <span class="bl-ref">' . e((string) ($r['bank_reference'] ?: $r['provider_txn'])) . '</span>' : 'No transaction ID' ?></span></span></td>
+        <td data-label="Mode"><span class="bl-pill"><?= e(\App\Services\BankLedgerService::modeLabel((string) $r['source'], $r['gateway_code'])) ?></span></td>
+        <td data-label="Amount" class="num"><span class="bl-amt"><?= e(money((int) $r['amount_minor'], (string) $r['currency'])) ?></span></td>
+        <td data-label="Status"><span class="<?= e($badge[$r['ledger_status']] ?? 'badge badge-grey') ?>"><?= e($labels[$r['ledger_status']] ?? $r['ledger_status']) ?></span></td>
+        <td data-label="Verified"><span><?= $r['verified_at'] ? e(dt((string) $r['verified_at'], 'j M Y H:i')) . '<span class="bl-sub">' . e((string) ($r['verified_by_email'] ?? '')) . '</span>' : '—' ?></span></td>
       </tr>
     <?php endforeach; ?>
-    <?php if (!$result['rows']): ?><tr><td colspan="8" class="muted">No transactions match.</td></tr><?php endif; ?>
+    <?php if (!$result['rows']): ?><tr><td colspan="7" style="text-align:center;color:#7a6e73;padding:30px">No transactions match your filters.</td></tr><?php endif; ?>
     </tbody></table></div>
-  <p class="muted">Page <?= (int) $page ?> of <?= (int) $lastPage ?> &middot; <?= (int) $result['total'] ?> record(s)
-    <?php if ($page > 1): ?><a href="?<?= e(http_build_query(array_merge($filters, ['page' => $page - 1]))) ?>">Previous</a><?php endif; ?>
-    <?php if ($page < $lastPage): ?><a href="?<?= e(http_build_query(array_merge($filters, ['page' => $page + 1]))) ?>">Next</a><?php endif; ?></p>
+  <div class="bl-foot">
+    <span>Page <?= (int) $page ?> of <?= (int) $lastPage ?> · <?= (int) $result['total'] ?> record(s)</span>
+    <span class="bl-pager">
+      <?php if ($page > 1): ?><a class="btn btn-light" href="<?= e($page_url($page - 1)) ?>">&larr; Previous</a><?php endif; ?>
+      <?php if ($page < $lastPage): ?><a class="btn btn-light" href="<?= e($page_url($page + 1)) ?>">Next &rarr;</a><?php endif; ?>
+    </span>
+  </div>
 </section>
