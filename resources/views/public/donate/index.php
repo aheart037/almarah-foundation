@@ -28,7 +28,7 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
     </div>
 </section>
 
-<section class="dn-section">
+<section class="dn-section" id="online-form">
     <div class="container donate-layout dn-layout">
         <div class="form-card dn-card">
             <?php if ((!$gatewayReady || $gateways === []) && $selectedCurrency === $currency): ?>
@@ -69,25 +69,14 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
                     <h2 class="dn-step"><span class="dn-step-no">2</span> Choose an amount</h2>
                     <div class="field currency-field dn-currency" id="currencyField">
                         <label for="donationCurrency" class="sr-only">Donation currency</label>
+                        <div class="dn-select-wrap">
+                            <?php $curFlag = $flagUrl($selectedCurrency); ?>
+                            <img id="currencyFlag" class="dn-flag dn-flag-current" src="<?= e($curFlag) ?>" alt="" width="22" height="16"<?= $curFlag === '' ? ' hidden' : '' ?>>
                         <select id="donationCurrency" name="currency" aria-describedby="currencyHelp rateStatus">
                             <?php foreach ($currencies as $code): $opt = $currencyOptions[$code] ?? ['name'=>$code,'flag'=>'','symbol'=>$code]; ?>
                             <option value="<?= e($code) ?>" data-flag="<?= e($flagUrl($code)) ?>"<?= $selectedCurrency === $code ? ' selected' : '' ?>><?= e($opt['name'] . ' – ' . $code . ' (' . $opt['symbol'] . ')') ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="currency-combobox dn-combo" id="currencyCombobox" hidden>
-                            <?php $curFlag = $flagUrl($selectedCurrency); ?>
-                            <img id="currencyFlag" class="dn-flag dn-flag-current" src="<?= e($curFlag) ?>" alt="" width="22" height="16"<?= $curFlag === '' ? ' hidden' : '' ?>>
-                            <input id="currencySearch" type="text" role="combobox" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="currencyOptions" aria-describedby="currencyHelp" aria-label="Search donation currencies" placeholder="Search currency, country or code">
-                            <svg class="dn-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                            <div id="currencyOptions" class="currency-list" role="listbox" aria-label="Available donation currencies" hidden>
-                                <?php foreach ($currencies as $code): $opt = $currencyOptions[$code] ?? ['name'=>$code,'flag'=>'','symbol'=>$code]; $fu = $flagUrl($code); ?>
-                                <button type="button" role="option" class="currency-option" id="currencyOption-<?= e($code) ?>" data-code="<?= e($code) ?>" aria-selected="<?= $selectedCurrency === $code ? 'true' : 'false' ?>" tabindex="-1">
-                                    <?php if ($fu !== ''): ?><img class="dn-flag" src="<?= e($fu) ?>" alt="" width="22" height="16" loading="lazy"><?php else: ?><span class="dn-flag dn-flag-none" aria-hidden="true"></span><?php endif; ?>
-                                    <span><?= e($opt['name']) ?></span> <b><?= e($code) ?></b> <span><?= e($opt['symbol']) ?></span>
-                                </button>
-                                <?php endforeach; ?>
-                                <p id="currencyEmpty" hidden>No matching payable currency.</p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -177,24 +166,21 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
 
             <div class="bank-quick" id="bankTransfer">
                 <h3>Bank transfer</h3>
-                <p>Prefer to transfer directly? Use a matching account below, then upload your slip so our team can verify it and email your tax exemption certificate.</p>
-                <?php foreach ($banks as $b): ?>
-                <?php $bankCurrency = strtoupper((string) ($b['currency'] ?? '')); if (!in_array($bankCurrency, $currencies, true)) continue; ?>
-                <div class="bank-mini" data-bank-currency="<?= e($bankCurrency) ?>"<?= $selectedCurrency === $bankCurrency ? '' : ' hidden' ?>>
-                    <strong><?= e($bankCurrency) ?></strong>
-                    <b><?= e((string) $b['bank_name']) ?></b> <small><?= e((string) $b['account_type']) ?></small>
-                    <div>A/C <code><?= e((string) $b['account_number']) ?></code> <button type="button" class="copy-btn" data-copy="<?= e((string) $b['account_number']) ?>">Copy</button></div>
-                    <?php if (!empty($b['iban'])): ?><div>IBAN <code><?= e((string) $b['iban']) ?></code> <button type="button" class="copy-btn" data-copy="<?= e((string) $b['iban']) ?>">Copy</button></div><?php endif; ?>
-                </div>
+                <p>Prefer to transfer directly? Use any account in the bank section below, then upload your slip so our team can verify it and email your tax exemption certificate.</p>
+                <?php /* Invisible markers: donate.js uses them to know which currencies have a bank account (the account details themselves are in the bank section below). */ ?>
+                <?php foreach (array_unique(array_map(static fn ($b): string => strtoupper((string) ($b['currency'] ?? '')), $banks)) as $bankCurrency): if (!in_array($bankCurrency, $currencies, true)) continue; ?>
+                <span class="bank-flag" data-bank-currency="<?= e($bankCurrency) ?>" aria-hidden="true"<?= $selectedCurrency === $bankCurrency ? '' : ' hidden' ?>></span>
                 <?php endforeach; ?>
                 <p id="noBankMessage"<?= $hasSelectedBank ? ' hidden' : '' ?>>No published bank account is available for this currency.</p>
-                <a class="btn btn-outline" href="<?= e(base_url('banks')) ?>">All bank account information</a>
+                <a class="btn btn-outline" href="#bank-transfer">View all bank accounts</a>
                 <a class="btn btn-gold" id="reportTransfer" href="<?= e(base_url('donate/transfer?mode=report&currency=' . rawurlencode($selectedCurrency))) ?>">I already paid &mdash; upload my slip</a>
-                <a class="btn btn-outline" href="<?= e(base_url('donate/transfer?mode=new&currency=' . rawurlencode($selectedCurrency))) ?>">I want to make a new transfer</a>
+                <a class="btn btn-outline" id="newTransfer" href="<?= e(base_url('donate/transfer?mode=new&currency=' . rawurlencode($selectedCurrency))) ?>">I want to make a new transfer</a>
             </div>
         </aside>
     </div>
 </section>
+
+<?php require __DIR__ . '/_bank-section.php'; ?>
 
 <script src="<?= e(asset('assets/js/donate.js')) ?>" defer></script>
 <script>

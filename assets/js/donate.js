@@ -18,19 +18,15 @@
   const submit = $('#donateSubmit');
   const feedback = $('#donateFeedback');
   const transferLink = $('#reportTransfer');
+  const newTransferLink = $('#newTransfer');
   const presetGrid = form.querySelector('.amount-grid');
   const initialButton = submit.innerHTML;
   const ratesNotice = $('#rateStatus');
   const estimates = JSON.parse($('#donationEstimates').textContent || '{}');
-  const combo = $('#currencyCombobox');
-  const search = $('#currencySearch');
-  const list = $('#currencyOptions');
-  const options = [...list.querySelectorAll('[data-code]')];
   let activeCurrency = currency.value;
   let sending = false;
   let converting = false;
   let revision = 0;
-  let highlighted = 0;
 
   const money = n => Number(n).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
   function amount() { return custom.value.trim() !== '' ? custom.value.trim() : (presets.find(r => r.checked)?.value || ''); }
@@ -66,7 +62,7 @@
     $('#sumEstimateNote').textContent = code === siteCurrency
       ? 'Online payments are charged in PKR. No conversion is performed at checkout.'
       : 'Estimated amount only. Transfer and report the actual amount in ' + code + '.';
-    transferLink.href = transferLink.pathname + '?currency=' + encodeURIComponent(code);
+    [transferLink, newTransferLink].forEach(link => { if (!link) return; const u = new URL(link.href, location.href); u.searchParams.set('currency', code); link.href = u.pathname + u.search; });
     submit.innerHTML = bankRadio.checked ? 'View bank transfer details' : initialButton;
   }
   function setPresets(code) {
@@ -128,55 +124,12 @@
     if (manual) saveChoice(next);
     setPresets(next);
     paymentMethods();
-    options.forEach(option => option.setAttribute('aria-selected', option.dataset.code === next ? 'true' : 'false'));
     if (priorCustom !== '' && next !== previous) quote(previous, next, priorCustom, revision);
     else if (next !== siteCurrency && !presetGrid.hidden) {
       const status = ratesNotice.textContent;
       if (!status.includes('updated')) ratesNotice.textContent = 'Converted amounts are estimates. Your bank determines the actual transfer amount.';
     }
   }
-  function selectedText() { return currency.selectedOptions[0]?.textContent?.trim() || currency.value; }
-  function closeList() {
-    list.hidden = true; search.setAttribute('aria-expanded','false'); search.removeAttribute('aria-activedescendant');
-    search.value = selectedText();
-  }
-  function openList() { list.hidden = false; search.setAttribute('aria-expanded','true'); filterOptions(''); }
-  function filterOptions(query) {
-    let count = 0;
-    options.forEach(option => { option.hidden = !option.textContent.toLowerCase().includes(query.toLowerCase()); if (!option.hidden) count++; });
-    $('#currencyEmpty').hidden = count !== 0;
-    highlighted = 0; highlightOption();
-  }
-  function highlightOption() {
-    const visible = options.filter(option => !option.hidden);
-    options.forEach(option => option.classList.remove('is-highlighted'));
-    const selected = visible[highlighted];
-    if (selected) { selected.classList.add('is-highlighted'); search.setAttribute('aria-activedescendant', selected.id); }
-    else search.removeAttribute('aria-activedescendant');
-  }
-  options.forEach(option => option.addEventListener('click', () => {
-    currency.value = option.dataset.code;
-    currency.dispatchEvent(new Event('change',{bubbles:true}));
-    search.focus(); closeList();
-  }));
-  search.addEventListener('focus', () => openList());
-  search.addEventListener('input', () => { if (list.hidden) openList(); filterOptions(search.value); });
-  search.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { closeList(); event.preventDefault(); return; }
-    if (event.key === 'Tab') { closeList(); return; }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (list.hidden) openList();
-      const visible = options.filter(option => !option.hidden);
-      highlighted = (highlighted + (event.key === 'ArrowDown' ? 1 : -1) + visible.length) % (visible.length || 1);
-      highlightOption(); event.preventDefault();
-    }
-    if (event.key === 'Enter' && !list.hidden) {
-      const option = options.filter(o => !o.hidden)[highlighted];
-      if (option) option.click();
-      event.preventDefault();
-    }
-  });
-  document.addEventListener('click', event => { if (!combo.contains(event.target)) closeList(); });
   currency.addEventListener('change', () => applyCurrency(true));
   presets.forEach(r => r.addEventListener('change', () => { if (r.checked) custom.value = ''; updateAmount(); }));
   custom.addEventListener('input', () => {
@@ -213,10 +166,6 @@
     sending = true; submit.disabled = true; submit.textContent = 'Connecting to secure payment…';
   });
   window.addEventListener('pageshow', () => { sending = false; paymentMethods(); });
-  // Native select remains the no-JS fallback and the only posted currency.
-  combo.hidden = false;
-  currency.tabIndex = -1;
-  $('#currencyField').classList.add('currency-ready');
-  search.value = selectedText();
+  // The currency is a plain dropdown: visitors can only pick from the list.
   updatePurpose(); setPresets(activeCurrency); paymentMethods();
 })();

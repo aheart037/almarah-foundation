@@ -87,3 +87,23 @@
 /* ---------- Summary + bank panel ---------- */
 .dn-summary{border-radius:22px;box-shadow:0 18px 44px rgba(107,15,53,.2)}
 .dn-aside .bank-quick{border-radius:20px}
+
+/* ---------- v3.7: currency is a plain dropdown (no typing) ---------- */
+.dn-select-wrap{position:relative;display:flex;align-items:center;width:100%}
+@media (min-width:560px){.dn-select-wrap{width:262px}}
+.dn-select-wrap select{width:100%;min-height:40px;padding:6px 38px 6px 42px;border-radius:999px;font-size:.84rem;font-weight:700;cursor:pointer}
+.dn-select-wrap .dn-flag-current{z-index:1}
+/* ---------- v3.7: bank panel beside the form, styled like the bank-transfer section ---------- */
+.dn-aside .bank-quick{position:relative;overflow:hidden;background:#fff;border:0;border-radius:20px;padding:26px 24px 22px;box-shadow:0 0 0 1px rgba(169,45,99,.07),0 8px 24px rgba(169,45,99,.08)}
+.dn-aside .bank-quick::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#C9A000,#F2C200,#FFD740)}
+.dn-aside .bank-quick h3{font-size:.62rem;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#A92D63;margin:0 0 12px}
+.dn-aside .bank-quick p{font-size:.84rem;line-height:1.65;color:#5A2040}
+.dn-aside .bank-quick .bank-mini{background:#FDF5F8;border:1px solid rgba(169,45,99,.08);border-radius:14px;padding:14px 16px;margin-top:12px}
+.dn-aside .bank-quick .bank-mini strong{display:inline-block;font-size:.56rem;font-weight:800;letter-spacing:2px;color:#A92D63;margin-bottom:4px}
+.dn-aside .bank-quick .bank-mini b{font-size:.92rem;color:#1A0810}
+.dn-aside .bank-quick .bank-mini small{display:block;font-size:.6rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#9A6080;margin-bottom:6px}
+.dn-aside .bank-quick .bank-mini code{font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:.6px;color:#A92D63}
+.dn-aside .bank-quick .copy-btn{background:rgba(169,45,99,.08);border:1px solid rgba(169,45,99,.12);color:#A92D63;border-radius:8px}
+.dn-aside .bank-quick .btn-outline{border-color:rgba(169,45,99,.25);font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase}
+
+.dn-aside .bank-quick .bank-flag{display:none !important}
