@@ -203,7 +203,7 @@
       <div class="vl-form-box">
         <h3>Volunteer Registration</h3>
         <p>We are excited to have you on board. Please complete all fields so we can find the best role for you.</p>
-        [forminator_form id="1204"]
+        <?php require dirname(__DIR__, 2) . '/partials/forms/volunteer.php'; ?>
       </div>
     </div>
   </div>

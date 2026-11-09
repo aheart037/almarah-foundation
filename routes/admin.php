@@ -16,7 +16,9 @@ use App\Http\Controllers\Admin\DonationController;
 use App\Http\Controllers\Admin\DonationCertificateController;
 use App\Http\Controllers\Admin\DonationReviewController;
 use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\BankLedgerController;
 use App\Http\Controllers\Admin\LedgerController;
+use App\Http\Controllers\Admin\OfflineEntryController;
 use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\InboxController;
@@ -114,6 +116,10 @@ return static function (Router $router) use ($adminContent, $adminContentCsrf, $
     $router->post('/admin/finance/donations/{id}/adjust', [FinanceController::class, 'adjustStore'], $canCsrf('finance.manage'), 'admin.finance.adjust.store');
     $router->post('/admin/finance/donations/{id}/receipt', [FinanceController::class, 'sendReceipt'], $canCsrf('finance.manage'), 'admin.finance.receipt');
 
+    $router->get('/admin/offline-donations', [OfflineEntryController::class, 'index'], $can('donations.record|donations.verify'), 'admin.offline.entries');
+    $router->get('/admin/ledger/banks', [BankLedgerController::class, 'index'], $can('donations.view'), 'admin.ledger.banks');
+    $router->get('/admin/ledger/banks/{id}/export', [BankLedgerController::class, 'export'], $can('reports.view'), 'admin.ledger.banks.export');
+    $router->get('/admin/ledger/banks/{id}', [BankLedgerController::class, 'show'], $can('donations.view'), 'admin.ledger.bank');
     $router->get('/admin/ledger', [LedgerController::class, 'index'], $can('donations.view'), 'admin.ledger');
 
     // --- donations and payments ---------------------------------------------

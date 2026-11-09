@@ -8,6 +8,7 @@ $badge = ['verified' => 'badge badge-green', 'pending_verification' => 'badge ba
   <div><h1>Donation ledger</h1><p class="sub">Only verified donations count toward confirmed totals. Records are never deleted.</p></div>
   <div class="sr-actions">
     <?php if (isset($can) && $can('donations.record')): ?><a class="btn btn-primary" href="<?= e(base_url('admin/finance/offline')) ?>">Record offline donation</a><?php endif; ?>
+    <a class="btn btn-primary" href="<?= e(base_url('admin/ledger/banks')) ?>">Bank ledgers</a>
     <a class="btn btn-light" href="<?= e(base_url('admin/donations')) ?>">All donations</a>
   </div>
 </div>

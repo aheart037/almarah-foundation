@@ -154,7 +154,7 @@
       <div class="nl-form-divider"></div>
 
       <div class="nl-forminator-wrap">
-        [forminator_form id="1597"]
+        <?php $newsletterSource = 'newsletter-page'; require dirname(__DIR__, 2) . '/partials/forms/newsletter.php'; ?>
       </div>
 
       <div class="nl-privacy-note">

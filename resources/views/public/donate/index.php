@@ -37,7 +37,7 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
             </div>
             <?php endif; ?>
 
-            <form id="donateForm" method="post" action="<?= e(base_url('fundraise-submit.php')) ?>" data-min="<?= $minAmount ?>" data-max="<?= $maxAmount ?>" data-site-currency="<?= e($currency) ?>" data-simple-donation="1" data-currency-url="<?= e(base_url('donate/currency')) ?>" data-estimate-url="<?= e(base_url('donate/estimate')) ?>" novalidate>
+            <form id="donateForm" method="post" action="<?= e(base_url('fundraise-submit.php')) ?>" data-transfer-url="<?= e(base_url('donate/transfer')) ?>" data-min="<?= $minAmount ?>" data-max="<?= $maxAmount ?>" data-site-currency="<?= e($currency) ?>" data-simple-donation="1" data-currency-url="<?= e(base_url('donate/currency')) ?>" data-estimate-url="<?= e(base_url('donate/estimate')) ?>" novalidate>
                 <?= csrf_field() ?>
                 <input type="hidden" name="donation_attempt" value="<?= e($donationNonce) ?>">
                 <input type="hidden" name="type" value="purpose">
@@ -147,7 +147,7 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
                         <input type="radio" name="gateway" value="bank_transfer" data-bank="1"<?= ($selectedCurrency !== $currency || $gateways === [] || old('gateway') === 'bank_transfer') && $hasSelectedBank ? ' checked' : '' ?>>
                         <span class="gw">
                             <span class="gw-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8M3 18h18M2 22h20"/></svg></span>
-                            <span><b>Bank transfer / deposit</b><small>View matching account details below; report your transfer for verification</small></span>
+                            <span><b>Bank transfer / deposit</b><small>Pay into our bank account, then upload your slip so we can verify and send your certificate</small></span>
                         </span>
                     </label>
                 </div>
@@ -177,7 +177,7 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
 
             <div class="bank-quick" id="bankTransfer">
                 <h3>Bank transfer</h3>
-                <p>Prefer to transfer directly? Use a matching published account below and report your transfer to <a href="mailto:info@almarah.org">info@almarah.org</a>.</p>
+                <p>Prefer to transfer directly? Use a matching account below, then upload your slip so our team can verify it and email your tax exemption certificate.</p>
                 <?php foreach ($banks as $b): ?>
                 <?php $bankCurrency = strtoupper((string) ($b['currency'] ?? '')); if (!in_array($bankCurrency, $currencies, true)) continue; ?>
                 <div class="bank-mini" data-bank-currency="<?= e($bankCurrency) ?>"<?= $selectedCurrency === $bankCurrency ? '' : ' hidden' ?>>
@@ -189,7 +189,8 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
                 <?php endforeach; ?>
                 <p id="noBankMessage"<?= $hasSelectedBank ? ' hidden' : '' ?>>No published bank account is available for this currency.</p>
                 <a class="btn btn-outline" href="<?= e(base_url('banks')) ?>">All bank account information</a>
-                <a id="reportTransfer" href="<?= e(base_url('donate/transfer?currency=' . rawurlencode($selectedCurrency))) ?>">Already transferred? Report your payment for verification</a>
+                <a class="btn btn-gold" id="reportTransfer" href="<?= e(base_url('donate/transfer?mode=report&currency=' . rawurlencode($selectedCurrency))) ?>">I already paid &mdash; upload my slip</a>
+                <a class="btn btn-outline" href="<?= e(base_url('donate/transfer?mode=new&currency=' . rawurlencode($selectedCurrency))) ?>">I want to make a new transfer</a>
             </div>
         </aside>
     </div>

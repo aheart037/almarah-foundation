@@ -21,7 +21,7 @@ final class DonationLedgerService
     {
     }
 
-    private function statusExpr(): string
+    public function statusExpr(): string
     {
         return "CASE WHEN " . self::CONFIRMED . " THEN 'verified'
                      WHEN d.verification_status = 'rejected' THEN 'rejected'
@@ -53,6 +53,10 @@ final class DonationLedgerService
         $channel = (string) ($f['channel'] ?? '');
         if ($channel === 'online') $w[] = 'd.recorded_by IS NULL';
         if ($channel === 'offline') $w[] = 'd.recorded_by IS NOT NULL';
+        if ((int) ($f['recorded_by'] ?? 0) > 0) {
+            $w[] = 'd.recorded_by = :rec';
+            $p['rec'] = (int) $f['recorded_by'];
+        }
         if ((int) ($f['bank_account_id'] ?? 0) > 0) {
             $w[] = 'd.bank_account_id = :bank';
             $p['bank'] = (int) $f['bank_account_id'];

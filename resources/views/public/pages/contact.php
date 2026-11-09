@@ -31,7 +31,7 @@
                 </p>
 
                 <div class="ct-form-wrap">
-                    [forminator_form id="1203"]
+                    <?php require dirname(__DIR__, 2) . '/partials/forms/contact.php'; ?>
                 </div>
 
                 <div class="ct-or-divider"><span>Or reach us instantly on WhatsApp</span></div>

@@ -215,4 +215,80 @@ $login(null);
 // --- 9. existing pages unaffected --------------------------------------------------------------------------
 foreach (['/', '/donate/transfer'] as $p) { ok(hit($router, $app, $p) === 200, "public page $p still renders"); }
 
+
+// --- 10. donor bank-transfer page: two options, report form, bank list -----------------------------------------
+$page = static fn (string $path): string => $GLOBALS['router']->dispatch(new Request('GET', parse_url($path, PHP_URL_PATH), (function () use ($path) { parse_str((string) parse_url($path, PHP_URL_QUERY), $q); return $q; })(), [], [], []), $GLOBALS['app'])->body();
+$chooser = $page('/donate/transfer');
+ok(str_contains($chooser, 'I already paid') && str_contains($chooser, 'I want to make a new transfer') && !str_contains($chooser, 'name="payment_proof"'), 'donor sees the two options first');
+$report = $page('/donate/transfer?mode=report');
+ok(str_contains($report, 'name="payment_proof"') && str_contains($report, 'accept="image/*"') && str_contains($report, 'name="bank_reference"') && str_contains($report, 'enctype="multipart/form-data"') && str_contains($report, 'Meezan'), 'report form: slip upload, transaction ID, bank list');
+$new = $page('/donate/transfer?mode=new&currency=PKR');
+ok(str_contains($new, 'Meezan') && str_contains($new, '0001') && str_contains($new, 'report my payment'), 'new-transfer option lists bank accounts and links to reporting');
+
+$donate = $page('/donate');
+ok(str_contains($donate, 'I already paid') && str_contains($donate, 'data-transfer-url') && str_contains($donate, 'mode=new'), 'Donate page offers both bank-transfer options');
+ok(str_contains((string) file_get_contents(__DIR__ . '/../assets/js/donate.js'), 'donate/transfer'), 'bank transfer button leads to the transfer page');
+
+// --- 12. bank ledgers --------------------------------------------------------------------------------------
+$database->insert('bank_accounts', ['id' => 2, 'bank_name' => 'HBL', 'account_title' => 'Almarah', 'account_number' => '9999', 'currency' => 'PKR', 'status' => 'published']);
+$database->insert('donors', ['name' => '=HYPERLINK("x")', 'email' => 'evil@example.org', 'phone' => '0302']);
+$d3 = (int) $database->scalar("SELECT id FROM donors WHERE email='evil@example.org'");
+$h1 = mk($database, ['bank_account_id' => 2, 'donor_id' => $d3, 'amount_minor' => 50000, 'source' => 'online_transfer', 'bank_reference' => 'TXN-HBL-777']);
+$review->decide($h1, 22, $fin, 'approve', 'ok');
+$h2 = mk($database, ['bank_account_id' => 2, 'amount_minor' => 70000]);
+$review->decide($h2, 22, $fin, 'reject', 'Slip unreadable, please resend');
+$h3 = mk($database, ['bank_account_id' => 2, 'amount_minor' => 90000]); // pending
+$sum = $app->make(\App\Services\BankLedgerService::class)->summary([]);
+$by = []; foreach ($sum as $r) { $by[$r['bank_id']] = $r; }
+ok(isset($by[1], $by[2], $by[0]), 'summary lists both banks and the gateway ledger');
+ok((int) $by[2]['confirmed_count'] === 1 && (int) $by[2]['confirmed_minor'] === 50000 && (int) $by[2]['pending_count'] === 1 && (int) $by[2]['rejected_count'] === 1, 'HBL: rejected and pending are not confirmed');
+$expect1 = $database->int("SELECT COUNT(*) FROM donations WHERE bank_account_id = 1 AND status='completed' AND verification_status='verified'");
+ok((int) $by[1]['confirmed_count'] === $expect1 && $expect1 > 0, 'Meezan confirmed count matches the donations table');
+ok(($by[2]['modes']['Online / mobile banking'] ?? 0) === 1, 'mode breakdown shown');
+$login(22);
+$p = $page('/admin/ledger/banks');
+ok(str_contains($p, 'HBL') && str_contains($p, 'Meezan') && str_contains($p, 'Online payment gateway'), 'bank ledgers page renders all ledgers');
+$p = $page('/admin/ledger/banks/2');
+ok(str_contains($p, 'TXN-HBL-777') && str_contains($p, 'ALM-C-') , 'bank ledger shows transaction ID and website reference');
+ok(hit($router, $app, '/admin/ledger/banks/999') === 404, 'unknown bank -> 404');
+ok(hit($router, $app, '/admin/ledger/banks/2/export') === 403, 'CSV needs reports.view');
+$database->run("INSERT IGNORE INTO permissions (name, group_name, label) VALUES ('reports.view', 'reports', 'View reports')");
+$database->insert('role_permissions', ['role_id' => 10, 'permission_id' => $perm('reports.view')]);
+$login(22);
+$csv = $GLOBALS['router']->dispatch(new Request('GET', '/admin/ledger/banks/2/export', [], [], [], []), $app);
+ok($csv->status() === 200 && str_contains($csv->body(), 'TXN-HBL-777') && str_contains($csv->body(), "\"'=HYPERLINK") && str_contains($csv->body(), 'Website reference'), 'CSV export works and neutralises spreadsheet formulas');
+$login(23);
+ok(hit($router, $app, '/admin/ledger/banks') === 403, 'non-staff cannot open bank ledgers');
+$login(null);
+ok(in_array(hit($router, $app, '/admin/ledger/banks'), [301, 302, 401, 403], true), 'guest cannot open bank ledgers');
+
+// --- 13. separate Offline donations menu + entries page ---------------------------------------------------------
+$database->insert('roles', ['id' => 12, 'name' => 'record_only', 'label' => 'Record only']);
+$database->insert('users', ['id' => 24, 'first_name' => 'Rec', 'last_name' => 'Only', 'email' => 'recordonly@example.org', 'password_hash' => 'x', 'status' => 'active']);
+$database->insert('role_permissions', ['role_id' => 12, 'permission_id' => $perm('donations.record')]);
+$database->insert('user_roles', ['user_id' => 24, 'role_id' => 12]);
+$mine = mk($database, ['recorded_by' => 24, 'amount_minor' => 12300, 'bank_reference' => 'MINE-0001']);
+$login(22);
+$fp = $page('/admin/offline-donations');
+ok(str_contains($fp, 'nav-group">Offline donations') && str_contains($fp, 'Verification queue') && str_contains($fp, 'All offline entries') && str_contains($fp, 'Bank ledgers'), 'finance sees the separate Offline donations menu, queue and bank ledgers');
+ok(str_contains($fp, 'MINE-0001') && str_contains($fp, 'ALM-C-0005'), 'finance sees every staff entry');
+$login(24);
+$rp = $page('/admin/offline-donations');
+ok(str_contains($rp, 'nav-group">Offline donations') && str_contains($rp, 'Record donation') && str_contains($rp, 'My entries') && !str_contains($rp, 'Verification queue') && !str_contains($rp, 'Bank ledgers'), 'record-only staff menu: record + my entries, no queue or ledgers');
+ok(str_contains($rp, 'MINE-0001') && !str_contains($rp, 'ALM-C-0005'), 'record-only staff sees only their own entries');
+ok(hit($router, $app, '/admin/ledger/banks') === 403 && hit($router, $app, '/admin/finance/offline') === 200, 'record-only staff cannot open ledgers but can record');
+$login(23);
+ok(hit($router, $app, '/admin/offline-donations') === 403, 'non-staff cannot open offline entries');
+$login(null);
+ok(in_array(hit($router, $app, '/admin/offline-donations'), [301, 302, 401, 403], true), 'guest cannot open offline entries');
+ok(trim((string) file_get_contents(__DIR__ . '/../VERSION')) === 'V3.5 — Almarah Foundation V3.5', 'version is V3.5');
+
+// --- 11. site installed in a folder named "donate" (https://host/donate/donate/transfer) --------------------------
+\App\Core\BasePath::boot('https://softex.pk/donate');
+ok(\App\Core\Response::locationFor('/donate/transfer?mode=done') === '/donate/transfer?mode=done', 'root-relative /donate/... is treated as already prefixed (the bug)');
+ok(\App\Core\Response::locationFor('https://softex.pk/donate/donate/transfer?mode=done') === 'https://softex.pk/donate/donate/transfer?mode=done', 'absolute URL keeps the folder + route');
+$src = (string) file_get_contents(__DIR__ . '/../app/Http/Controllers/Public/OfflineDonationController.php');
+ok(!preg_match("#(redirect|flashFormStateTo)\\([^;]*'/donate/#", $src), 'transfer controller has no root-relative /donate/ redirects');
+\App\Core\BasePath::reset();
+
 echo "$n donation certificate Part 2 checks passed.\n";

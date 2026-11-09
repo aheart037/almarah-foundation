@@ -141,10 +141,19 @@ $link = static function (string $href, string $label, string $iconName, string $
           <?= $link('admin/cms/jobs', 'Job openings', 'jobs', $is('/admin/cms/jobs')) ?>
         <?php endif; ?>
 
+        <?php if ($can('donations.record') || $can('donations.verify')): ?>
+          <div class="nav-group">Offline donations</div>
+          <?php if ($can('donations.record')): ?><?= $link('admin/finance/offline', 'Record donation', 'heart', $is('/admin/finance/offline')) ?><?php endif; ?>
+          <?= $link('admin/offline-donations', $can('donations.verify') ? 'All offline entries' : 'My entries', 'report', $is('/admin/offline-donations')) ?>
+          <?php if ($can('donations.verify')): ?><?= $link('admin/donations?verification_status=submitted', 'Verification queue', 'shield', '') ?><?php endif; ?>
+        <?php endif; ?>
+
         <?php if ($can('donations.view') || $can('donors.view') || $can('finance.manage') || $can('logs.view')): ?>
           <div class="nav-group">Finance</div>
           <?php if ($can('donations.view')): ?>
             <?= $link('admin/donations', 'Donations', 'heart', $is('/admin/donations')) ?>
+            <?= $link('admin/ledger/banks', 'Bank ledgers', 'bank', $is('/admin/ledger/banks')) ?>
+            <?= $link('admin/ledger', 'Donation ledger', 'chart', $path === '/admin/ledger' ? 'active' : '') ?>
             <?php endif; ?>
           <?php if ($can('donors.view') || $can('donations.view')): ?><?= $link('admin/donors', 'Donors', 'users', $is('/admin/donors')) ?>
           <?php endif; ?>

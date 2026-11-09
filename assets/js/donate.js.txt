@@ -1,0 +1,223 @@
+/* /donate: server-provided payable currencies; rates are estimates, never a charge. */
+(() => {
+  'use strict';
+  const form = document.getElementById('donateForm');
+  if (!form) return;
+  const $ = (selector) => document.querySelector(selector);
+  const currency = $('#donationCurrency');
+  const siteCurrency = form.dataset.siteCurrency;
+  const csrf = form.querySelector('[name="_token"]').value;
+  const custom = $('#customAmount');
+  const hiddenAmount = form.elements.namedItem('amount');
+  const presets = [...form.querySelectorAll('[name="amount_preset"]')];
+  const methods = [...form.querySelectorAll('[data-online-method]')];
+  const bankMethod = $('#bankMethod');
+  const bankRadio = form.querySelector('[name="gateway"][value="bank_transfer"]');
+  const bankRows = [...document.querySelectorAll('[data-bank-currency]')];
+  const noBank = $('#noBankMessage');
+  const submit = $('#donateSubmit');
+  const feedback = $('#donateFeedback');
+  const transferLink = $('#reportTransfer');
+  const presetGrid = form.querySelector('.amount-grid');
+  const initialButton = submit.innerHTML;
+  const ratesNotice = $('#rateStatus');
+  const estimates = JSON.parse($('#donationEstimates').textContent || '{}');
+  const combo = $('#currencyCombobox');
+  const search = $('#currencySearch');
+  const list = $('#currencyOptions');
+  const options = [...list.querySelectorAll('[data-code]')];
+  let activeCurrency = currency.value;
+  let sending = false;
+  let converting = false;
+  let revision = 0;
+  let highlighted = 0;
+
+  const money = n => Number(n).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  function amount() { return custom.value.trim() !== '' ? custom.value.trim() : (presets.find(r => r.checked)?.value || ''); }
+  function message(text) { feedback.textContent = text; if (text) feedback.focus(); }
+  function updateAmount() {
+    hiddenAmount.value = amount();
+    const value = Number(amount());
+    $('#sumAmount').textContent = currency.value + ' ' + (Number.isFinite(value) && value > 0 ? money(value) : '0');
+  }
+  function updatePurpose() {
+    const select = $('#purpose'); const selected = select.options[select.selectedIndex];
+    $('#sumPurpose').textContent = selected?.textContent || '';
+    $('#purposeHint').textContent = selected?.dataset.desc || '';
+  }
+  function paymentMethods() {
+    const code = currency.value;
+    const online = code === siteCurrency && code === 'PKR';
+    const hasBank = bankRows.some(row => row.dataset.bankCurrency === code);
+    methods.forEach(label => { label.hidden = !online; label.querySelector('input').disabled = !online; });
+    bankMethod.hidden = !hasBank; bankRadio.disabled = !hasBank;
+    bankRows.forEach(row => { row.hidden = row.dataset.bankCurrency !== code; });
+    noBank.hidden = hasBank;
+    if ((!online || !methods.length) && hasBank) bankRadio.checked = true;
+    else if (bankRadio.checked && !hasBank) {
+      const first = methods.map(label => label.querySelector('input')).find(input => !input.disabled);
+      if (first) first.checked = true;
+    }
+    const unavailable = !hasBank && !methods.some(label => !label.querySelector('input').disabled);
+    submit.disabled = unavailable || sending || converting;
+    if (unavailable) message('No payment method is available for ' + code + ' right now.');
+    else if (!converting) message('');
+    $('#sumCurrency').textContent = code;
+    $('#sumEstimateNote').textContent = code === siteCurrency
+      ? 'Online payments are charged in PKR. No conversion is performed at checkout.'
+      : 'Estimated amount only. Transfer and report the actual amount in ' + code + '.';
+    transferLink.href = transferLink.pathname + '?currency=' + encodeURIComponent(code);
+    submit.innerHTML = bankRadio.checked ? 'Continue with bank transfer' : initialButton;
+  }
+  function setPresets(code) {
+    const values = estimates[code] || {};
+    const available = presets.length > 0 && presets.every(r => Number.isFinite(Number(values[r.dataset.baseAmount])) && +values[r.dataset.baseAmount] > 0);
+    presetGrid.hidden = !available;
+    presets.forEach(r => {
+      if (available) {
+        r.value = Number(values[r.dataset.baseAmount]).toFixed(2);
+        r.closest('.amount-opt').querySelector('.amount-display').textContent = money(r.value);
+      } else r.checked = false;
+    });
+    if (code === siteCurrency && !custom.value && !presets.some(r => r.checked) && available) {
+      (presets[1] || presets[0]).checked = true;
+    }
+    $('#amountPrefix').textContent = code;
+    form.querySelector('label[for="customAmount"]').textContent = 'Or enter your own amount (' + code + ')';
+    form.querySelectorAll('.amount-code').forEach(label => { label.textContent = code; });
+    custom.min = code === siteCurrency ? form.dataset.min : '0.01';
+    custom.max = code === siteCurrency ? form.dataset.max : '5000000';
+    if (code !== siteCurrency && !available) ratesNotice.textContent = 'Exchange-rate estimates are unavailable. Enter the amount in ' + code + ' yourself; no conversion will be performed.';
+    updateAmount();
+  }
+  async function quote(previous, next, value, currentRevision) {
+    converting = true; custom.value = ''; hiddenAmount.value = ''; paymentMethods();
+    ratesNotice.textContent = 'Checking the latest estimate…';
+    try {
+      const body = new URLSearchParams({_token:csrf,from:previous,to:next,amount:value});
+      const response = await fetch(form.dataset.estimateUrl, {method:'POST',body,headers:{Accept:'application/json'}});
+      const result = await response.json();
+      if (currentRevision !== revision) return;
+      if (!response.ok || !result.success || result.currency !== next || !/^\d+\.\d{2}$/.test(result.estimate)) throw Error('No estimate available');
+      custom.value = result.estimate;
+      presets.forEach(r => { r.checked = false; });
+      ratesNotice.textContent = 'Estimate only' + (result.stale ? ' (cached rate; refresh pending)' : '') + '. Rates updated ' + result.updated + '. Your bank transfer amount may differ.';
+    } catch (_) {
+      if (currentRevision !== revision) return;
+      custom.value = '';
+      presets.forEach(r => { r.checked = false; });
+      ratesNotice.textContent = 'Conversion unavailable. Enter an amount in ' + next + ' manually; nothing has been charged or converted.';
+      message('Conversion unavailable. Enter your amount in ' + next + ' yourself.');
+    } finally {
+      if (currentRevision === revision) { converting = false; paymentMethods(); updateAmount(); }
+    }
+  }
+  async function saveChoice(code) {
+    try {
+      await fetch(form.dataset.currencyUrl, {method:'POST',body:new URLSearchParams({_token:csrf,currency:code}),headers:{Accept:'application/json'}});
+    } catch (_) { /* Current form choice still works; the next visit may use Geo-IP again. */ }
+  }
+  function applyCurrency(manual = false) {
+    if (sending) { currency.value = activeCurrency; return; }
+    const next = currency.value;
+    const previous = activeCurrency;
+    activeCurrency = next;
+    const priorCustom = custom.value.trim();
+    revision++;
+    converting = false; // invalidate any in-flight quote for a previous selection
+    if (manual) saveChoice(next);
+    setPresets(next);
+    paymentMethods();
+    options.forEach(option => option.setAttribute('aria-selected', option.dataset.code === next ? 'true' : 'false'));
+    if (priorCustom !== '' && next !== previous) quote(previous, next, priorCustom, revision);
+    else if (next !== siteCurrency && !presetGrid.hidden) {
+      const status = ratesNotice.textContent;
+      if (!status.includes('updated')) ratesNotice.textContent = 'Converted amounts are estimates. Your bank determines the actual transfer amount.';
+    }
+  }
+  function selectedText() { return currency.selectedOptions[0]?.textContent?.trim() || currency.value; }
+  function closeList() {
+    list.hidden = true; search.setAttribute('aria-expanded','false'); search.removeAttribute('aria-activedescendant');
+    search.value = selectedText();
+  }
+  function openList() { list.hidden = false; search.setAttribute('aria-expanded','true'); filterOptions(''); }
+  function filterOptions(query) {
+    let count = 0;
+    options.forEach(option => { option.hidden = !option.textContent.toLowerCase().includes(query.toLowerCase()); if (!option.hidden) count++; });
+    $('#currencyEmpty').hidden = count !== 0;
+    highlighted = 0; highlightOption();
+  }
+  function highlightOption() {
+    const visible = options.filter(option => !option.hidden);
+    options.forEach(option => option.classList.remove('is-highlighted'));
+    const selected = visible[highlighted];
+    if (selected) { selected.classList.add('is-highlighted'); search.setAttribute('aria-activedescendant', selected.id); }
+    else search.removeAttribute('aria-activedescendant');
+  }
+  options.forEach(option => option.addEventListener('click', () => {
+    currency.value = option.dataset.code;
+    currency.dispatchEvent(new Event('change',{bubbles:true}));
+    search.focus(); closeList();
+  }));
+  search.addEventListener('focus', () => openList());
+  search.addEventListener('input', () => { if (list.hidden) openList(); filterOptions(search.value); });
+  search.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { closeList(); event.preventDefault(); return; }
+    if (event.key === 'Tab') { closeList(); return; }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (list.hidden) openList();
+      const visible = options.filter(option => !option.hidden);
+      highlighted = (highlighted + (event.key === 'ArrowDown' ? 1 : -1) + visible.length) % (visible.length || 1);
+      highlightOption(); event.preventDefault();
+    }
+    if (event.key === 'Enter' && !list.hidden) {
+      const option = options.filter(o => !o.hidden)[highlighted];
+      if (option) option.click();
+      event.preventDefault();
+    }
+  });
+  document.addEventListener('click', event => { if (!combo.contains(event.target)) closeList(); });
+  currency.addEventListener('change', () => applyCurrency(true));
+  presets.forEach(r => r.addEventListener('change', () => { if (r.checked) custom.value = ''; updateAmount(); }));
+  custom.addEventListener('input', () => {
+    if (converting) {
+      revision++; converting = false; paymentMethods();
+      ratesNotice.textContent = 'You entered an amount in ' + currency.value + ' manually; no automatic conversion was applied.';
+    }
+    if (custom.value !== '') presets.forEach(r => { r.checked = false; });
+    updateAmount();
+  });
+  $('#purpose').addEventListener('change', updatePurpose);
+  form.querySelectorAll('[name="gateway"]').forEach(r => r.addEventListener('change', () => {
+    submit.innerHTML = bankRadio.checked ? 'Continue with bank transfer' : initialButton; message('');
+  }));
+  form.querySelectorAll('[name="donation_type"]').forEach(r => r.addEventListener('change', () => {
+    $('#sumType').textContent = form.querySelector('[name="donation_type"]:checked')?.value === 'monthly' ? 'Monthly pledge' : 'One-time';
+  }));
+  form.addEventListener('submit', event => {
+    if (sending || converting) { event.preventDefault(); return; }
+    const selected = form.querySelector('[name="gateway"]:checked');
+    if (!selected || selected.disabled) { event.preventDefault(); message('Choose an available payment method.'); return; }
+    if (selected === bankRadio) {
+      // Bank transfer: go to the two-option page (already paid / pay now) for the chosen currency.
+      event.preventDefault();
+      window.location.href = (form.dataset.transferUrl || '/donate/transfer') + '?currency=' + encodeURIComponent(currency.value);
+      return;
+    }
+    if (currency.value !== 'PKR' || siteCurrency !== 'PKR') { event.preventDefault(); message('Online payment is only available in PKR.'); return; }
+    updateAmount();
+    const value = hiddenAmount.value;
+    if (!/^\d+(?:\.\d{1,2})?$/.test(value) || +value < +form.dataset.min || +value > +form.dataset.max) {
+      event.preventDefault(); message('Enter an amount between ' + form.dataset.min + ' and ' + form.dataset.max + ' PKR.'); custom.focus(); return;
+    }
+    if (!form.reportValidity()) { event.preventDefault(); return; }
+    sending = true; submit.disabled = true; submit.textContent = 'Connecting to secure payment…';
+  });
+  window.addEventListener('pageshow', () => { sending = false; paymentMethods(); });
+  // Native select remains the no-JS fallback and the only posted currency.
+  combo.hidden = false;
+  currency.tabIndex = -1;
+  $('#currencyField').classList.add('currency-ready');
+  search.value = selectedText();
+  updatePurpose(); setPresets(activeCurrency); paymentMethods();
+})();
