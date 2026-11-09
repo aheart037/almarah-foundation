@@ -667,3 +667,105 @@ body .page-hero.has-image::before {
   background-repeat: repeat, no-repeat;
   opacity: .55;
 }
+
+/* ==========================================================================
+   17. v3.4 — plain page-title heroes + gentle motion
+   --------------------------------------------------------------------------
+   (a) Page-title heroes no longer show the small "eyebrow" pill above the
+       title or the rows of glass badges below the paragraph. They are hidden
+       here for every hero at once (the markup is left in place so the text
+       can be brought back by deleting this block).
+   (b) The short tag-line under the leadership / e-book titles becomes plain
+       text instead of a glass pill.
+   (c) Visual motion, all CSS, no scripts: the ripple rings breathe, golden
+       sparks drift upward in two layers, and the gold word in the title
+       slowly shimmers. Everything stops for visitors who prefer reduced motion.
+   ========================================================================== */
+
+/* (a) no pills / badges inside any page hero ------------------------------- */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+         .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+         .dn-hero, .prog-hero, .eb-hero, .hx-hero)
+  :is([class*="eyebrow"], [class*="hero-badge"], .hx-chips, .hx-chip, .eyebrow) {
+  display: none !important;
+}
+
+/* (b) tag-line as plain text ------------------------------------------------ */
+body :is(.page-hero .hero-sub, .eb-hero-sub) {
+  display: block;
+  margin: 18px auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+  font-family: inherit;
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, .88);
+}
+
+/* (c) motion ---------------------------------------------------------------- */
+@keyframes hx-breathe {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-12px, 8px, 0) scale(1.045); }
+}
+@keyframes hx-sparks {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to   { background-position: 0 0, 0 0, 0 0, 0 -210px, 0 -210px, 0 -210px, 0 -340px, 0 -340px; }
+}
+@keyframes hx-shine {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+
+/* layers: dot grid, two ripple-ring corners (as before), then drifting sparks */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+         .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+         .dn-hero, .prog-hero, .eb-hero, .hx-hero)::before {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .20) 1px, transparent 1.6px),
+    radial-gradient(circle at 100% 0,
+      transparent 0 200px, rgba(255, 255, 255, .10) 201px 202px,
+      transparent 203px 330px, rgba(255, 255, 255, .075) 331px 332px,
+      transparent 333px 470px, rgba(255, 255, 255, .05) 471px 472px, transparent 473px),
+    radial-gradient(circle at 0 100%,
+      transparent 0 150px, rgba(242, 194, 0, .20) 151px 152px,
+      transparent 153px 280px, rgba(242, 194, 0, .12) 281px 282px,
+      transparent 283px 420px, rgba(242, 194, 0, .07) 421px 422px, transparent 423px),
+    radial-gradient(circle at 18% 28%, rgba(255, 215, 64, .85) 0 1.5px, transparent 2.8px),
+    radial-gradient(circle at 64% 72%, rgba(255, 233, 138, .70) 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 88% 16%, rgba(255, 215, 64, .60) 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 40% 52%, rgba(255, 255, 255, .55) 0 2px, transparent 3.4px),
+    radial-gradient(circle at 8% 86%, rgba(255, 215, 64, .65) 0 2px, transparent 3.4px);
+  background-size: 28px 28px, auto, auto, 210px 210px, 210px 210px, 210px 210px, 340px 340px, 340px 340px;
+  background-repeat: repeat, no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+  will-change: transform, background-position;
+  animation: hx-breathe 16s ease-in-out infinite alternate, hx-sparks 26s linear infinite;
+}
+
+/* the gold word in the title: a slow sheen */
+body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero, .ikr-hero,
+         .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero, .eb-hero, .hx-hero) h1 :is(em, span) {
+  background-image: linear-gradient(100deg, var(--hx-gold) 0%, var(--hx-gold-pale) 28%, var(--hx-gold-light) 50%, var(--hx-gold) 72%, var(--hx-gold-pale) 100%);
+  background-size: 220% 100%;
+  animation: hx-shine 7s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+           .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+           .dn-hero, .prog-hero, .eb-hero, .hx-hero)::before { animation: none; will-change: auto; }
+}
+
+/* lighter on phones: fewer repaints */
+@media (max-width: 640px) {
+  body :is(.ab-hero, .bnk-hero, .vl-hero, .cr-hero, .ct-hero, .don-hero, .fr-hero,
+           .ikr-hero, .page-hero, .mou-hero, .nl-hero, .prj-hero, .lc-hero,
+           .dn-hero, .prog-hero, .eb-hero, .hx-hero)::before { animation-duration: 20s, 32s; }
+}
