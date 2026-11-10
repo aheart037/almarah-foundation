@@ -365,7 +365,7 @@ final class ResourceController extends Controller
         }
 
         // Unique constraints we know about, reported as friendly messages.
-        foreach (['slug', 'route_path', 'from_path'] as $uniqueColumn) {
+        foreach (['slug', 'route_path', 'from_path', 'section_key'] as $uniqueColumn) {
             if (isset($def['fields'][$uniqueColumn]) && isset($data[$uniqueColumn])) {
                 $sql = "SELECT COUNT(*) FROM `{$def['table']}` WHERE `{$uniqueColumn}` = :v";
                 $params = ['v' => $data[$uniqueColumn]];

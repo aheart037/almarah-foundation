@@ -87,13 +87,15 @@ final class FormService
             'user_agent'  => mb_substr($ua, 0, 255),
             'fingerprint' => $this->fingerprint('contact', $d),
         ]);
+        $this->db->insert('form_case_events', ['contact_id' => $id, 'event_type' => 'submitted', 'to_status' => 'new']);
         $this->record('contact', $id, $d, $ip, 'stored');
         $this->notify(
-            'New contact message from ' . $this->s($d['name'], 120),
+            'New contact message from ' . str_replace(["\r", "\n"], ' ', $this->s($d['name'], 120)),
             [
                 'Name'    => $d['name'],
                 'Email'   => $d['email'],
                 'Phone'   => $d['phone'] ?? '',
+                'Subject' => $d['subject'] ?? '',
                 'Message' => $d['message'],
             ],
             (string) $d['email']
@@ -150,6 +152,8 @@ final class FormService
             'qualification'   => $d['qualification'] ?? null,
             'about'           => $d['about'] ?? null,
             'area'            => $d['area'] ?? null,
+            'occupation_detail' => $d['occupation_detail'] ?? null,
+            'additional_notes' => $this->s($d['additional_notes'] ?? '', 3000),
         ];
         $id = $this->db->insert('volunteers', [
             'first_name'          => $first,
@@ -158,17 +162,17 @@ final class FormService
             'email'               => mb_strtolower($this->s($d['email'], 191)),
             'phone'               => $this->s($d['phone'], 40),
             'alt_phone'           => $this->s($d['whatsapp'] ?? '', 40) ?: null,
-            'date_of_birth'       => $d['date_of_birth'] ?: null,
+            'date_of_birth'       => ($d['date_of_birth'] ?? '') ?: null,
             'gender'              => in_array($d['gender'] ?? '', ['male', 'female', 'other'], true) ? $d['gender'] : null,
             'cnic'                => $this->s($d['cnic'] ?? '', 20) ?: null,
             'address_line'        => trim($this->s($d['street'] ?? '', 200) . (isset($d['area']) && $d['area'] !== '' ? ', ' . $this->s($d['area'], 50) : '')) ?: null,
             'city'                => $this->s($d['city'] ?? '', 120) ?: null,
             'state'               => $this->s($d['state'] ?? '', 120) ?: null,
             'country'             => $this->s($d['country'] ?? '', 80) ?: null,
-            'occupation'          => $this->s($d['occupation_type'] ?? '', 120) ?: null,
+            'occupation'          => $this->s(($d['occupation_type'] ?? '') === 'other' ? ($d['occupation_detail'] ?? 'other') : ($d['occupation_type'] ?? ''), 120) ?: null,
             'organisation'        => $this->s($d['organisation'] ?? ($d['institution'] ?? ''), 160) ?: null,
             'skills'              => $this->s($d['skills'] ?? '', 500) ?: null,
-            'interests_json'      => json_encode(['days' => $days], JSON_UNESCAPED_UNICODE),
+            'interests_json'      => json_encode(['days' => $days, 'areas' => array_values($d['areas_of_interest'] ?? [])], JSON_UNESCAPED_UNICODE),
             'availability'        => $days === [] ? null : implode(', ', array_map(static fn ($x) => substr($x, 0, 3), $days)),
             'previous_experience' => $this->s($d['experience'] ?? '', 5000) ?: null,
             'motivation'          => $this->s($d['motivation'] ?? '', 5000) ?: null,
@@ -176,6 +180,7 @@ final class FormService
             'status'              => 'pending',
             'ip_address'          => $ip,
         ]);
+        $this->db->insert('form_case_events', ['volunteer_id' => $id, 'event_type' => 'submitted', 'to_status' => 'pending']);
         $this->record('volunteer', $id, $d, $ip, 'stored');
         $this->notify('New volunteer registration: ' . $d['full_name'], [
             'Name'     => $d['full_name'],
@@ -186,6 +191,18 @@ final class FormService
             'Days'     => implode(', ', $days),
             'Why'      => $d['motivation'] ?? '',
         ], (string) $d['email']);
+        // Acknowledgment is separate from the internal notification and is
+        // queued through the existing SMTP/worker infrastructure.
+        try {
+            $safeName = htmlspecialchars((string) $d['full_name'], ENT_QUOTES, 'UTF-8');
+            $this->mail->enqueueRaw((string) $d['email'], (string) $d['full_name'],
+                'We received your Almarah Foundation volunteer application',
+                '<p>Dear ' . $safeName . ',</p><p>Thank you for applying to volunteer with Almarah Foundation. Our team will review your application and contact you about next steps.</p>',
+                'Dear ' . $d['full_name'] . ",\nThank you for applying to volunteer with Almarah Foundation. Our team will review your application and contact you about next steps.",
+                'forms.volunteer_ack');
+        } catch (\Throwable $e) {
+            $this->logger->warning('Volunteer acknowledgment could not be queued', ['reason' => $e->getMessage()]);
+        }
         return $id;
     }
 

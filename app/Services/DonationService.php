@@ -135,6 +135,8 @@ final class DonationService
                 'status'           => 'pending',
             ]);
 
+            app(DonationReviewService::class)->captureGatewayDetails($donationId, $input, $gatewayCode);
+
             $merchantOrderId = $this->buildMerchantOrderId($reference, $gatewayCode);
             $stateTtl = (int) Config::get('payments.callback.state_ttl_minutes', 180);
             $stateExpiresAt = time() + ($stateTtl * 60);
@@ -227,7 +229,9 @@ final class DonationService
                     'gateway' => $gatewayCode,
                     'order'   => $merchantOrderId,
                 ]);
-                $merchantOrderId = $this->buildMerchantOrderId($reference, $gatewayCode);
+                app(DonationReviewService::class)->captureGatewayDetails($donationId, $input, $gatewayCode);
+
+            $merchantOrderId = $this->buildMerchantOrderId($reference, $gatewayCode);
                 $callbackState = PaymentStateToken::issue($merchantOrderId);
                 $this->payments->renumber($transactionId, $merchantOrderId, hash('sha256', $callbackState));
                 $request = $buildRequest($merchantOrderId, $callbackState);

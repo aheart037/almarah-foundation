@@ -157,6 +157,7 @@ $returnUrl = base_url('donate/' . $targetSlug) . ($targetType !== 'fundraiser' ?
             <a href="<?= e(base_url('privacy-policy')) ?>">privacy policy</a>. Payments are processed by the bank;
             your card number is never sent to our servers.
           </p>
+          <?php require dirname(__DIR__, 2) . '/partials/donation-extra-fields.php'; ?>
         </form>
       </div>
 

@@ -27,6 +27,7 @@ $can = isset($can) && is_callable($can) ? $can : static fn (string $p): bool => 
 $adminRole = in_array('admin', $currentUserRoles ?? [], true) || in_array('super_admin', $currentUserRoles ?? [], true);
 $fullName = trim((string) ($authUser['first_name'] ?? '') . ' ' . (string) ($authUser['last_name'] ?? ''));
 
+// Sidebar badge: unread items only (read entries are never counted).
 $inboxOpen = 0;
 try {
     $inboxOpen = array_sum(InboxController::openCounts(\App\Core\App::instance()->make(\App\Core\Database::class), \App\Core\App::instance()->make(\App\Services\AuthService::class)));
@@ -122,23 +123,15 @@ $link = static function (string $href, string $label, string $iconName, string $
 
         <?php if ($can('content.manage')): ?>
           <div class="nav-group">Website</div>
-          <?php if ($adminRole): ?><?= $link('admin/campaigns', 'Campaigns', 'purpose', $is('/admin/campaigns')) ?><?php endif; ?>
-          <?= $link('admin/cms/pages', 'Pages', 'pages', $is('/admin/cms/pages')) ?>
           <?= $link('admin/cms/slides', 'Homepage slider', 'slides', $is('/admin/cms/slides')) ?>
-          <?= $link('admin/cms/banners', 'Banners', 'banner', $is('/admin/cms/banners')) ?>
           <?= $link('admin/menus', 'Menus', 'menu', $is('/admin/menus')) ?>
           <?= $link('admin/cms/media', 'Photos & videos', 'media', $is('/admin/cms/media')) ?>
-          <?= $link('admin/cms/team', 'Board & team', 'team', $is('/admin/cms/team')) ?>
-          <?= $link('admin/cms/partners', 'MOUs & certificates', 'cert', $is('/admin/cms/partners')) ?>
+          <?= $link('admin/cms/team', 'Board & Team', 'team', $is('/admin/cms/team') ?: $is('/admin/cms/team-sections')) ?>
+          <?= $link('admin/cms/partners', 'MOUs & Certificates', 'cert', $is('/admin/cms/partners')) ?>
           <?= $link('admin/cms/reports', 'Financial reports', 'report', $is('/admin/cms/reports')) ?>
           <?= $link('admin/cms/purposes', 'Donation purposes', 'purpose', $is('/admin/cms/purposes')) ?>
           <?= $link('admin/cms/seo', 'SEO', 'seo', $is('/admin/cms/seo') ?: $is('/admin/cms/redirects') ?: $is('/admin/cms/not-found')) ?>
           <?= $link('admin/content', 'Legal text & FAQs', 'pages', $is('/admin/content')) ?>
-        <?php endif; ?>
-
-        <?php if ($can('volunteers.manage')): ?>
-          <div class="nav-group">People</div>
-          <?= $link('admin/cms/jobs', 'Job openings', 'jobs', $is('/admin/cms/jobs')) ?>
         <?php endif; ?>
 
         <?php if ($can('donations.record') || $can('donations.verify')): ?>
@@ -181,8 +174,6 @@ $link = static function (string $href, string $label, string $iconName, string $
             <?php endforeach; ?>
           </details>
         <?php endif; ?>
-
-        <?php if ($can('grants.view')): ?><?= $link('admin/grants', 'Grants', 'report', $is('/admin/grants')) ?><?php endif; ?>
 
         <?php if ($can('users.view') || $can('users.manage') || $can('roles.view') || $can('roles.manage') || $can('settings.manage') || $can('logs.view') || $can('backups.manage')): ?>
           <div class="nav-group">System</div>

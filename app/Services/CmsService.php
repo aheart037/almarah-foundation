@@ -82,6 +82,27 @@ final class CmsService
         return $this->db->select($sql . ' ORDER BY sort_order ASC, id ASC', $params);
     }
 
+    /**
+     * Headings for the Board Members page (banner + one per category), keyed by section_key.
+     * Empty when migration 0021 has not run yet — the page then uses built-in defaults.
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    public function teamSections(): array
+    {
+        return $this->remember('team:sections', function (): array {
+            try {
+                $out = [];
+                foreach ($this->db->select('SELECT * FROM team_sections ORDER BY sort_order ASC, id ASC') as $row) {
+                    $out[(string) $row['section_key']] = $row;
+                }
+                return $out;
+            } catch (\Throwable) {
+                return [];
+            }
+        });
+    }
+
     /** @return list<array<string,mixed>> */
     public function partners(?string $type = null): array
     {
@@ -92,6 +113,31 @@ final class CmsService
             $params['t'] = $type;
         }
         return $this->db->select($sql . ' ORDER BY sort_order ASC, id ASC', $params);
+    }
+
+    /**
+     * Published partner records of several types in ONE admin-defined order
+     * (used by the Certificates & Registrations page, which mixes two types).
+     *
+     * @param list<string> $kinds
+     * @return list<array<string,mixed>>
+     */
+    public function partnersOfKinds(array $kinds): array
+    {
+        $kinds = array_values(array_filter($kinds, static fn ($k): bool => is_string($k) && preg_match('/^[a-z_]+$/', $k) === 1));
+        if ($kinds === []) {
+            return [];
+        }
+        $params = [];
+        $marks = [];
+        foreach ($kinds as $i => $kind) {
+            $marks[] = ':k' . $i;
+            $params['k' . $i] = $kind;
+        }
+        return $this->db->select(
+            "SELECT * FROM partners WHERE status = 'published' AND kind IN (" . implode(',', $marks) . ') ORDER BY sort_order ASC, id ASC',
+            $params
+        );
     }
 
     // --------------------------------------------------- documents & banks

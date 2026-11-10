@@ -60,10 +60,5 @@ $slides = is_array($slides ?? null) ? $slides : [];
 </section>
 <?php endif; ?>
 
-<?php /* v3.1: statistics strip immediately after the slider. */ ?>
-<?php require __DIR__ . '/pages/home-stats.php'; ?>
-
-<?php require __DIR__ . '/pages/home-sections.php'; ?>
-
-<?php /* v3.1: closing hero immediately before the footer. */ ?>
-<?php require __DIR__ . '/pages/home-cta-hero.php'; ?>
+<?php /* V3.6: redesigned homepage after the slider (impact band, about, programs, call to action). */ ?>
+<?php require __DIR__ . '/pages/home-redesign.php'; ?>

@@ -44,8 +44,8 @@ final class FormsController extends Controller
         $v = Validator::make($in, [
             'name'    => 'required|string|min:2|max:120',
             'email'   => 'required|email|max:191',
-            'phone'   => 'nullable|string|max:40',
-            'subject' => 'nullable|string|max:200',
+            'phone'   => 'required|string|min:7|max:40',
+            'subject' => 'required|string|min:2|max:200',
             'message' => 'required|string|min:10|max:5000',
         ], ['name' => 'Name', 'email' => 'Email address', 'message' => 'Message']);
         if ($v->fails()) {
@@ -53,6 +53,8 @@ final class FormsController extends Controller
         }
         if (!$this->forms->isDuplicate('contact', $in)) {
             $this->forms->storeContact($in, $request->ip(), (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        } else {
+            $this->forms->record('contact', null, $in, $request->ip(), 'duplicate');
         }
         return $this->ok($request, 'Thank you — your message has been received. Our team will get back to you within 24 hours.', '/contact');
     }
@@ -83,49 +85,41 @@ final class FormsController extends Controller
         if ($blocked = $this->forms->guard('volunteer', $in, $request->ip(), 5)) {
             return $this->blocked($request, $blocked, '/become-a-volunteer#volunteer-form');
         }
-        $rules = [
-            'full_name'       => 'required|string|min:3|max:160',
-            'guardian_name'   => 'required|string|min:3|max:120',
-            'cnic'            => 'required|string|min:5|max:20',
-            'street'          => 'required|string|max:200',
-            'area'            => 'nullable|string|max:50',
-            'city'            => 'required|string|max:120',
-            'state'           => 'required|string|max:120',
-            'country'         => 'required|string|max:80',
-            'email'           => 'required|email|max:191',
-            'phone'           => 'required|string|min:7|max:40',
-            'whatsapp'        => 'required|string|min:7|max:40',
-            'gender'          => 'required|in:male,female,other',
-            'date_of_birth'   => 'required|date',
-            'about'           => 'nullable|string|max:3000',
-            'occupation_type' => 'required|in:student,job',
-            'motivation'      => 'required|string|min:10|max:5000',
-            'experience'      => 'required|string|max:5000',
-            'skills'          => 'required|string|max:500',
-        ];
-        if (($in['occupation_type'] ?? '') === 'job') {
-            $rules['organisation'] = 'required|string|max:160';
-            $rules['qualification'] = 'required|string|max:160';
-        } else {
-            $rules['institution'] = 'required|string|max:160';
-            $rules['program'] = 'required|string|max:160';
-            $rules['semester'] = 'required|string|max:40';
-        }
-        $v = Validator::make($in, $rules, [
-            'full_name' => 'Full name', 'guardian_name' => 'Parent/Guardian name', 'cnic' => 'CNIC / B-Form',
-            'street' => 'Street address', 'date_of_birth' => 'Date of birth', 'whatsapp' => 'WhatsApp number',
-            'occupation_type' => 'Occupation', 'motivation' => 'Why you want to volunteer', 'experience' => 'Volunteering experience',
-            'institution' => 'College/University', 'program' => 'Enrolled program', 'semester' => 'Current semester',
-            'organisation' => 'Organization', 'qualification' => 'Qualification',
-        ]);
+        $v = Validator::make($in, [
+            'full_name' => 'required|string|min:3|max:160',
+            'email' => 'required|email|max:191',
+            'phone' => 'required|string|min:7|max:40',
+            'whatsapp' => 'nullable|string|max:40',
+            'city' => 'required|string|max:120',
+            'street' => 'required|string|max:200',
+            'occupation_type' => 'required|in:student,job,other',
+            'occupation_detail' => ($in['occupation_type'] ?? '') === 'other' ? 'required|string|max:120' : 'nullable|string|max:120',
+            'institution' => 'nullable|string|max:160',
+            'organisation' => 'nullable|string|max:160',
+            'skills' => 'required|string|min:2|max:500',
+            'experience' => 'nullable|string|max:5000',
+            'motivation' => 'required|string|min:10|max:5000',
+            'additional_notes' => 'nullable|string|max:3000',
+        ], ['full_name' => 'Full name', 'phone' => 'Mobile number', 'street' => 'Address',
+            'occupation_type' => 'Occupation', 'occupation_detail' => 'Occupation details',
+            'experience' => 'Previous volunteer experience']);
         if ($v->fails()) {
             return $this->invalid($request, $v->errors(), $in, '/become-a-volunteer#volunteer-form');
         }
-        if (empty($in['availability']) || !is_array($in['availability'])) {
-            return $this->invalid($request, ['availability' => 'Please choose at least one day you are available.'], $in, '/become-a-volunteer#volunteer-form');
+        $allowedAreas = ['education','food','community','fundraising','events','other'];
+        $allowedDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+        foreach (['areas_of_interest' => $allowedAreas, 'availability' => $allowedDays] as $key => $allowed) {
+            $values = $in[$key] ?? null;
+            if (!is_array($values) || !$values || count($values) > count($allowed) ||
+                count(array_unique($values)) !== count($values) ||
+                array_diff($values, $allowed)) {
+                return $this->invalid($request, [$key => 'Please select at least one valid option.'], $in, '/become-a-volunteer#volunteer-form');
+            }
         }
         if (!$this->forms->isDuplicate('volunteer', $in)) {
             $this->forms->storeVolunteer($in, $request->ip());
+        } else {
+            $this->forms->record('volunteer', null, $in, $request->ip(), 'duplicate');
         }
         return $this->ok($request, 'Thank you for registering! A volunteer coordinator will contact you within 48 hours.', '/become-a-volunteer#volunteer-form');
     }

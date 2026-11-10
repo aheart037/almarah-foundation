@@ -124,7 +124,7 @@ final class Fixture
                 'id' => $id, 'public_reference' => $ref, 'donor_id' => $donor, 'fundraiser_id' => $fund, 'campaign_id' => $camp, 'team_id' => $team,
                 'gateway_id' => $gw, 'amount_minor' => $amt, 'currency' => $cur, 'status' => $status, 'anonymous' => $anon,
                 'created_at' => $at($created), 'updated_at' => $at($completed ?? $created), 'completed_at' => $completed ? $at($completed) : null,
-                'receipt_email_status' => $receipt,
+                'receipt_email_status' => $receipt, 'verification_status' => in_array($status, ['completed','refunded'], true) ? 'verified' : 'legacy',
             ]);
         }
 

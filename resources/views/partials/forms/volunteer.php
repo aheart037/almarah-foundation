@@ -1,64 +1,58 @@
-<?php
-$countries = ['Pakistan' => 'Pakistan', 'United Kingdom' => 'United Kingdom', 'United States' => 'United States', 'United Arab Emirates' => 'United Arab Emirates', 'Saudi Arabia' => 'Saudi Arabia', 'Canada' => 'Canada', 'Australia' => 'Australia', 'Other' => 'Other'];
-$occ = old('occupation_type', 'student');
-?>
-<form class="site-form volunteer-form" method="post" action="<?= e(base_url('forms/volunteer')) ?>" data-ajax-form novalidate id="volunteerForm">
+<?php $occ = old('occupation_type', 'student'); ?>
+<form class="site-form volunteer-form" method="post" action="<?= e(base_url('forms/volunteer')) ?>" data-ajax-form id="volunteerForm">
     <?php require __DIR__ . '/_guard.php'; ?>
-    <h3 class="form-section-title">Personal details</h3>
+    <h3 class="form-section-title">About you</h3>
     <div class="form-grid">
         <?php foreach ([
-            ['name' => 'full_name', 'label' => 'Your full name', 'required' => true, 'placeholder' => 'E.g. Ali Raza', 'autocomplete' => 'name', 'max' => 160],
-            ['name' => 'guardian_name', 'label' => 'Parent/Guardian name', 'required' => true, 'placeholder' => 'E.g. Nazeer Ahmad', 'max' => 120],
-            ['name' => 'cnic', 'label' => 'Your CNIC / B-Form', 'required' => true, 'placeholder' => 'xxxxx-xxxxxxx-x', 'max' => 20],
-            ['name' => 'date_of_birth', 'label' => 'Date of birth', 'type' => 'date', 'required' => true, 'autocomplete' => 'bday'],
-            ['name' => 'gender', 'label' => 'Gender', 'type' => 'radio', 'required' => true, 'options' => ['male' => 'Male', 'female' => 'Female', 'other' => 'Other'], 'wide' => true],
-        ] as $f) { require __DIR__ . '/_field.php'; } ?>
-    </div>
-    <h3 class="form-section-title">Address</h3>
-    <div class="form-grid">
-        <?php foreach ([
-            ['name' => 'street', 'label' => 'Street address', 'required' => true, 'placeholder' => 'E.g. 3 Canal Park, Gulberg-II', 'autocomplete' => 'address-line1', 'max' => 200],
-            ['name' => 'area', 'label' => 'Area', 'placeholder' => 'Area / locality', 'autocomplete' => 'address-line2', 'max' => 50],
-            ['name' => 'city', 'label' => 'City', 'required' => true, 'placeholder' => 'E.g. Lahore', 'autocomplete' => 'address-level2', 'max' => 120],
-            ['name' => 'state', 'label' => 'State/Province', 'required' => true, 'placeholder' => 'E.g. Punjab', 'autocomplete' => 'address-level1', 'max' => 120],
-            ['name' => 'country', 'label' => 'Country', 'type' => 'select', 'required' => true, 'options' => $countries, 'placeholder' => 'Select country', 'value' => 'Pakistan'],
-        ] as $f) { require __DIR__ . '/_field.php'; } ?>
-    </div>
-    <h3 class="form-section-title">Contact</h3>
-    <div class="form-grid">
-        <?php foreach ([
-            ['name' => 'email', 'label' => 'Email address', 'type' => 'email', 'required' => true, 'placeholder' => 'E.g. ali@example.com', 'autocomplete' => 'email', 'max' => 191],
-            ['name' => 'phone', 'label' => 'Mobile number', 'type' => 'tel', 'required' => true, 'placeholder' => 'E.g. +92 300 400 5000', 'autocomplete' => 'tel', 'max' => 40],
-            ['name' => 'whatsapp', 'label' => 'WhatsApp number', 'type' => 'tel', 'required' => true, 'placeholder' => 'E.g. +92 300 400 5000', 'max' => 40],
-            ['name' => 'about', 'label' => 'Tell us a little about yourself', 'type' => 'textarea', 'rows' => 3, 'placeholder' => 'e.g., I work in marketing and enjoy community service', 'wide' => true, 'max' => 3000],
+            ['name'=>'full_name','label'=>'Full name','required'=>true,'autocomplete'=>'name','min'=>3,'max'=>160],
+            ['name'=>'email','label'=>'Email address','type'=>'email','required'=>true,'autocomplete'=>'email','max'=>191],
+            ['name'=>'phone','label'=>'Mobile number','type'=>'tel','required'=>true,'autocomplete'=>'tel','min'=>7,'max'=>40],
+            ['name'=>'whatsapp','label'=>'WhatsApp number (if different)','type'=>'tel','max'=>40],
+            ['name'=>'city','label'=>'City','required'=>true,'autocomplete'=>'address-level2','max'=>120],
+            ['name'=>'street','label'=>'Street address','required'=>true,'autocomplete'=>'street-address','max'=>200,'wide'=>true],
         ] as $f) { require __DIR__ . '/_field.php'; } ?>
     </div>
     <h3 class="form-section-title">Occupation</h3>
     <div class="form-grid">
-        <?php $f = ['name' => 'occupation_type', 'label' => 'I am a', 'type' => 'radio', 'required' => true, 'options' => ['student' => 'Student', 'job' => 'Job Holder'], 'value' => $occ, 'wide' => true]; require __DIR__ . '/_field.php'; ?>
-        <div class="form-grid field-wide" data-occupation="student"<?= $occ === 'job' ? ' hidden' : '' ?>>
-            <?php foreach ([
-                ['name' => 'institution', 'label' => 'College/University', 'required' => true, 'placeholder' => 'E.g. National University', 'max' => 160],
-                ['name' => 'program', 'label' => 'Enrolled program', 'required' => true, 'placeholder' => 'E.g. Bachelor in Arts', 'max' => 160],
-                ['name' => 'semester', 'label' => 'Current semester', 'required' => true, 'placeholder' => 'E.g. 1st', 'max' => 40],
-            ] as $f) { require __DIR__ . '/_field.php'; } ?>
+        <?php $f = ['name'=>'occupation_type','label'=>'I am a','type'=>'radio','required'=>true,'value'=>$occ,'options'=>['student'=>'Student','job'=>'Employed','other'=>'Other'],'wide'=>true]; require __DIR__ . '/_field.php'; ?>
+        <div class="form-grid field-wide" data-occupation="student"<?= $occ !== 'student' ? ' hidden' : '' ?>>
+            <?php $f = ['name'=>'institution','label'=>'College / university','max'=>160]; require __DIR__ . '/_field.php'; ?>
         </div>
         <div class="form-grid field-wide" data-occupation="job"<?= $occ !== 'job' ? ' hidden' : '' ?>>
-            <?php foreach ([
-                ['name' => 'organisation', 'label' => 'Organization', 'required' => true, 'placeholder' => 'E.g. Abc (Pvt) Ltd.', 'max' => 160],
-                ['name' => 'qualification', 'label' => 'Qualification', 'required' => true, 'placeholder' => 'E.g. Bachelor in Arts', 'max' => 160],
-            ] as $f) { require __DIR__ . '/_field.php'; } ?>
+            <?php $f = ['name'=>'organisation','label'=>'Organisation','max'=>160]; require __DIR__ . '/_field.php'; ?>
+        </div>
+        <div class="form-grid field-wide" data-occupation="other"<?= $occ !== 'other' ? ' hidden' : '' ?>>
+            <?php $f = ['name'=>'occupation_detail','label'=>'Please describe your occupation','required'=>true,'max'=>120]; require __DIR__ . '/_field.php'; ?>
         </div>
     </div>
-    <h3 class="form-section-title">Volunteering</h3>
+    <h3 class="form-section-title">Volunteering interests</h3>
     <div class="form-grid">
         <?php foreach ([
-            ['name' => 'motivation', 'label' => 'Why do you want to volunteer with the Almarah Foundation?', 'type' => 'textarea', 'required' => true, 'rows' => 4, 'wide' => true, 'max' => 5000],
-            ['name' => 'experience', 'label' => 'Please tell us your other volunteering experiences.', 'type' => 'textarea', 'required' => true, 'rows' => 3, 'wide' => true, 'max' => 5000],
-            ['name' => 'skills', 'label' => 'What are your skills?', 'type' => 'textarea', 'required' => true, 'rows' => 3, 'wide' => true, 'max' => 500],
-            ['name' => 'availability', 'label' => 'Days you are available', 'type' => 'checkbox', 'required' => true, 'options' => array_combine(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']), 'wide' => true],
+            ['name'=>'skills','label'=>'Skills','required'=>true,'type'=>'textarea','rows'=>3,'min'=>2,'max'=>500,'wide'=>true],
+            ['name'=>'areas_of_interest','label'=>'Areas of interest','type'=>'checkbox','required'=>true,'options'=>['education'=>'Education','food'=>'Food relief','community'=>'Community','fundraising'=>'Fundraising','events'=>'Events','other'=>'Other'],'wide'=>true],
+            ['name'=>'availability','label'=>'Days available','type'=>'checkbox','required'=>true,'options'=>array_combine(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']),'wide'=>true],
+            ['name'=>'experience','label'=>'Previous volunteer experience','type'=>'textarea','rows'=>3,'max'=>5000,'wide'=>true],
+            ['name'=>'motivation','label'=>'Why would you like to volunteer?','type'=>'textarea','required'=>true,'rows'=>4,'min'=>10,'max'=>5000,'wide'=>true],
+            ['name'=>'additional_notes','label'=>'Additional notes (optional)','type'=>'textarea','rows'=>3,'max'=>3000,'wide'=>true],
         ] as $f) { require __DIR__ . '/_field.php'; } ?>
     </div>
     <div class="form-feedback" role="status" aria-live="polite"><?php if ($m = flash('success')): ?><span class="ok"><?= e($m) ?></span><?php endif; ?></div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">Submit Registration</button></div>
 </form>
+
+<script>
+(function () {
+  var form = document.getElementById('volunteerForm');
+  if (!form) return;
+  ['availability', 'areas_of_interest'].forEach(function (name) {
+    var choices = Array.prototype.slice.call(form.querySelectorAll('input[name="' + name + '[]"]'));
+    if (!choices.length) return;
+    function validate() {
+      choices[0].setCustomValidity(choices.some(function (c) { return c.checked; }) ? '' : 'Please select at least one option.');
+    }
+    choices.forEach(function (c) { c.addEventListener('change', validate); });
+    form.addEventListener('reset', function () { setTimeout(validate, 0); });
+    validate();
+  });
+}());
+</script>

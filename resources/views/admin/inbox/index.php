@@ -2,8 +2,9 @@
 /**
  * Form submissions list.
  * @var array $box @var array $boxes @var array $openCounts @var array $rows @var string $q @var string $status
- * @var array $statusCounts @var int $page @var int $lastPage @var int $total @var array $query
+ * @var array $statusCounts @var int $page @var int $lastPage @var int $total @var array $query @var bool $showAll
  */
+$showAll = !empty($showAll);
 $base = base_url('admin/inbox/' . $box['key']);
 $badge = static function (string $s): string {
     $map = ['new' => 'badge-pending', 'pending' => 'badge-pending', 'read' => 'badge-grey', 'replied' => 'badge-approved', 'approved' => 'badge-approved', 'active' => 'badge-active', 'subscribed' => 'badge-active', 'hired' => 'badge-completed', 'shortlisted' => 'badge-processing', 'interview' => 'badge-processing', 'contacted' => 'badge-processing', 'rejected' => 'badge-rejected', 'spam' => 'badge-failed', 'bounced' => 'badge-failed', 'unsubscribed' => 'badge-inactive', 'inactive' => 'badge-inactive', 'archived' => 'badge-archived'];
@@ -13,7 +14,7 @@ $badge = static function (string $s): string {
 <div class="dash-head">
   <div>
     <h1>Inbox</h1>
-    <p class="sub">Everything submitted through the website forms. Nothing here is public.</p>
+    <p class="sub"><?= $showAll ? 'All submissions, including ones you have already read.' : 'Unread messages and form submissions. Items disappear from here once opened.' ?> Nothing here is public.</p>
   </div>
   <a class="btn btn-light" href="<?= e($base . '/export' . ($status !== '' ? '?status=' . urlencode($status) : '')) ?>">Export CSV</a>
 </div>
@@ -26,20 +27,28 @@ $badge = static function (string $s): string {
 
 <section class="panel">
   <form method="get" action="<?= e($base) ?>" class="rs-toolbar">
+    <?php if ($showAll): ?><input type="hidden" name="view" value="all"><?php endif; ?>
     <input class="input" type="search" name="q" value="<?= e($q) ?>" placeholder="Search name, email…" aria-label="Search">
+    <?php if ($showAll): ?>
     <select class="select-field" name="status" aria-label="Status">
       <option value="">All statuses</option>
       <?php foreach ($box['statuses'] as $value => $label): ?>
         <option value="<?= e($value) ?>" <?= $status === $value ? 'selected' : '' ?>><?= e($label) ?> (<?= (int) ($statusCounts[$value] ?? 0) ?>)</option>
       <?php endforeach; ?>
     </select>
-    <button class="btn btn-light" type="submit">Filter</button>
-    <?php if ($q !== '' || $status !== ''): ?><a class="btn btn-light" href="<?= e($base) ?>">Clear</a><?php endif; ?>
-    <span class="muted rs-count"><?= (int) $total ?> <?= $total === 1 ? 'record' : 'records' ?></span>
+    <?php endif; ?>
+    <button class="btn btn-light" type="submit">Search</button>
+    <?php if ($q !== '' || $status !== ''): ?><a class="btn btn-light" href="<?= e($base . ($showAll ? '?view=all' : '')) ?>">Clear</a><?php endif; ?>
+    <span class="muted rs-count"><?= (int) $total ?> <?= $showAll ? ($total === 1 ? 'record' : 'records') : 'unread' ?></span>
+    <?php if ($showAll): ?>
+      <a class="btn btn-light" href="<?= e($base) ?>">Unread only</a>
+    <?php else: ?>
+      <a class="muted" style="margin-left:auto;font-size:13px" href="<?= e($base . '?view=all') ?>">Show read items</a>
+    <?php endif; ?>
   </form>
 
   <?php if ($rows === []): ?>
-    <div class="empty-state"><h3>Nothing to show</h3><p><?= $q !== '' || $status !== '' ? 'No records match the filter.' : 'New submissions will appear here the moment someone sends the form.' ?></p></div>
+    <div class="empty-state"><h3><?= $showAll || $q !== '' ? 'Nothing to show' : 'No unread items' ?></h3><p><?= $q !== '' || $status !== '' ? 'No records match the filter.' : ($showAll ? 'New submissions will appear here the moment someone sends the form.' : 'You are all caught up. New submissions will appear here the moment someone sends the form.') ?></p></div>
   <?php else: ?>
     <div class="table-wrap">
       <table class="data-table">

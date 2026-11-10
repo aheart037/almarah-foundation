@@ -225,7 +225,7 @@ $r = $svc->run('reconciliation', $oct + ['issue' => 'all']);
 same('"all" includes matched rows', 12, $r['total']);
 $r = $svc->run('reconciliation', $oct + ['issue' => 'amount_mismatch']);
 same('single-issue filter', 1, $r['total']);
-check('limitation about bank transfers is stated', str_contains(implode(' ', $r['notes']), 'Bank transfers are not recorded'));
+check('limitation about bank transfers is stated', str_contains(implode(' ', $r['notes']), 'Offline transfer submissions are stored'));
 
 // ---------------------------------------------------------------------------
 section('Refund & Failed Payments');
@@ -276,7 +276,7 @@ same('receipt status filter', 1, $r['total']);
 // ---------------------------------------------------------------------------
 section('Audit log');
 $r = $svc->run('audit', ['date_from' => '2026-10-01', 'date_to' => '2026-10-31']);
-same('admins-only events (default): 2 approvals, 1 rejection, 1 refund, 1 settings change', 5, card($r, 'Events'));
+same('staff events (default): 2 approvals, 1 rejection, 1 refund, 1 settings change', 5, card($r, 'Events'));
 $r = $svc->run('audit', ['date_from' => '2026-10-01', 'date_to' => '2026-10-31', 'who' => 'all']);
 same('everyone', 12, card($r, 'Events'));
 $r = $svc->run('audit', ['date_from' => '2026-10-01', 'date_to' => '2026-10-31', 'area' => 'payment']);
@@ -354,7 +354,7 @@ foreach ($ref->getValue($router) as $route) {
     $allProtected = $allProtected && in_array(AuthMiddleware::class, $mw, true) && in_array(PermissionMiddleware::class . ':reports.view', $mw, true);
     $getOnly = $getOnly && strtoupper((string) ($route['method'] ?? $route[0] ?? 'GET')) === 'GET';
 }
-same('three report routes are registered (page, overview, pdf)', 3, $reportRoutes);
+same('five report routes are registered (page, overview, pdf, csv, xlsx)', 5, $reportRoutes);
 check('every report route requires login AND the reports.view permission', $allProtected);
 check('report routes are read-only (GET)', $getOnly);
 

@@ -241,24 +241,34 @@ final class EmailController extends Controller
     public function retry(Request $request): Response
     {
         $id = (int) $request->routeParam('id', 0);
-        $job = $this->db->selectOne('SELECT id, status FROM email_jobs WHERE id = :id', ['id' => $id]);
+        $job = $this->db->selectOne('SELECT id, status, event_key FROM email_jobs WHERE id = :id', ['id' => $id]);
 
         if ($job === null) {
             $this->flashError('That email job could not be found.');
             return $this->redirect('/admin/email-queue');
         }
 
-        if ((string) $job['status'] === 'sent') {
-            $this->flashWarning('That email has already been sent.');
+        // logs.view grants read access, not authority to dispatch any email.
+        // Finance staff may retry donation mail only; admins may operate all queues.
+        if (!$this->auth->isAdmin() && !($this->auth->can('finance.manage') && str_starts_with((string) $job['event_key'], 'donation.'))) {
+            abort(403, 'You do not have permission to retry this email.');
+        }
+
+        if ((string) $job['status'] !== 'failed') {
+            $this->flashWarning('Only failed emails can be re-queued. Active jobs must finish first.');
             return $this->redirect('/admin/email-queue');
         }
 
-        $this->db->update('email_jobs', [
+        $changed = $this->db->update('email_jobs', [
             'status'       => 'queued',
             'attempts'     => 0,
             'last_error'   => null,
             'available_at' => gmdate('Y-m-d H:i:s'),
-        ], 'id = :id', ['id' => (int) $id]);
+        ], 'id = :id AND status = :old', ['id' => $id, 'old' => 'failed']);
+        if ($changed < 1) {
+            $this->flashWarning('This email was already claimed or re-queued.');
+            return $this->redirect('/admin/email-queue');
+        }
 
         $this->audit->log('email.job_requeued', 'email_jobs', (string) $id, [], (int) $this->auth->id());
 

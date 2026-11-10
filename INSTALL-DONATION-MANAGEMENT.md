@@ -46,7 +46,7 @@ Certificates use your existing email settings. Make sure the mail queue runs (cr
 For a brand-new site use the built-in installer at /setup (it runs every migration, including 0019 and 0020). If /setup says "already installed", delete `storage/app/installed.lock` and make sure config.php points to the new database.
 
 ## Antivirus note
-`assets/js/donate.js` is shipped as `assets/js/donate.js.txt` so upload scanners do not block the ZIP. After extracting, rename it back to `donate.js`.
+Two JavaScript files are shipped with a `.txt` ending so upload scanners do not block the ZIP: `assets/js/donate.js.txt` and `assets/js/hero-slider-v37.js.txt`. After extracting, rename BOTH back (remove `.txt`).
 
 ## Website forms (contact, volunteer, newsletter)
 The Contact, Become-a-Volunteer and Newsletter pages now show real forms (the old WordPress `[forminator_form]` placeholders were replaced), and the footer newsletter box now posts to the correct address. Every submission is saved and appears in the admin sidebar under **Inbox** (Contact messages, Newsletter subscribers, Volunteer applications). Needs no database changes.
@@ -55,3 +55,9 @@ The Contact, Become-a-Volunteer and Newsletter pages now show real forms (the ol
 - **Create user**: set a password now (or email a setup link), pick the role(s), and see a two-column table of every role with the privileges it grants. Only a Super Admin can assign roles. Users can change their password any time with "Forgot password".
 - **Bank ledgers**: new card layout, KPI strip, cleaner filters and a mobile-friendly table. New files `assets/css/bank-ledger.css`, `assets/css/admin-users.css`.
 - No database changes in V3.6 (still migrations 0019 and 0020).
+
+## V3.7 - cinematic home slider
+Slow Ken Burns zoom, wipe transitions, mouse parallax, floating gold light particles, animated slide counter, clickable thumbnails, glowing progress bar and animated captions. The existing admin-managed slides keep working; nothing to configure.
+New files: `assets/css/hero-slider-v37.css`, `assets/js/hero-slider-v37.js`, and sharper 2560px copies `assets/images/banners/Header-N-hd.jpg` (used automatically through srcset).
+For your own slides, upload images at least 2560 x 1280 px; if a file named `name-hd.jpg` sits next to `name.jpg` it is used automatically on large and retina screens.
+No database changes.

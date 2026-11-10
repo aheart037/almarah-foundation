@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Core\Csrf;
+use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
@@ -14,12 +15,13 @@ use App\Services\AuditService;
 use App\Services\AuthService;
 use App\Services\ReportPdfService;
 use App\Services\ReportService;
+use App\Services\ReportSpreadsheetService;
 
 /**
  * Admin reports (v20). Read-only.
  *
- * Authorization is enforced by the route middleware (login + admin role) for
- * both the web pages and the PDF downloads; this controller adds no way around
+ * Authorization is enforced by the route middleware (login + staff reports.view)
+ * for pages and all downloads; this controller adds no way around
  * it. Filters are re-validated on the server for every request, so a PDF is
  * always built from the same cleaned filters as the page.
  */
@@ -32,6 +34,8 @@ final class ReportController extends Controller
         AuthService $auth,
         private ReportService $reports,
         private ReportPdfService $pdf,
+        private ReportSpreadsheetService $spreadsheets,
+        private Database $db,
         private AuditService $audit
     ) {
         parent::__construct($view, $session, $csrf, $auth);
@@ -60,19 +64,34 @@ final class ReportController extends Controller
             abort(404, 'Report not found.');
         }
 
-        $report = $this->reports->run($slug, $request->all(), 1, true);
         $user = $this->auth->user() ?? [];
-        $filters = $this->reports->describeFilters($report);
-
-        $binary = $this->pdf->render($report, $filters, [
-            'org'  => (string) \App\Core\Config::get('app.name', 'Almarah Foundation'),
-            'by'   => (string) ($user['email'] ?? ''),
-            'logo' => ReportPdfService::resolveLogo(),
-        ]);
+        // A repeatable-read snapshot keeps every export batch on the same ledger.
+        [$binary,$report] = $this->db->transaction(function () use ($slug,$request,$user): array {
+            $report = $this->reports->run($slug, $request->all(), 1, true);
+            $meta = [
+                'org'=>(string)\App\Core\Config::get('app.name','Almarah Foundation'),
+                'by'=>(string)($user['email'] ?? ''),
+                'logo'=>ReportPdfService::resolveLogo(),
+            ];
+            if (!empty($report['truncated'])) {
+                $firstRows = $report['rows'];
+                $lastPage = (int)$report['lastPage'];
+                $meta['rowProvider'] = function () use ($firstRows,$lastPage,$slug,$request): \Generator {
+                    yield from $firstRows;
+                    for ($page=2;$page<=$lastPage;$page++) {
+                        $next=$this->reports->run($slug,$request->all(),$page,true);
+                        yield from $next['rows'];
+                    }
+                };
+                $report['truncated'] = false;
+            }
+            $binary=$this->pdf->render($report,$this->reports->describeFilters($report),$meta);
+            return [$binary,$report];
+        });
 
         // Leave a trail: exports contain donor and financial data.
-        $this->audit->log('report.exported', 'report', $slug, [
-            'rows'    => min((int) $report['total'], ReportService::EXPORT_LIMIT),
+        $this->audit->logRequired('report.exported', 'report', $slug, [
+            'rows'    => (int) $report['total'],
             'range'   => ReportService::rangeText($report['filters']),
             'filters' => array_filter(array_diff_key($report['filters'], array_flip(['sort', 'dir', 'dir_given', 'date_from', 'date_to'])), static fn ($v): bool => $v !== '' && $v !== null),
         ], isset($user['id']) ? (int) $user['id'] : null);
@@ -84,6 +103,44 @@ final class ReportController extends Controller
             'Cache-Control'       => 'private, no-store, max-age=0',
             'X-Robots-Tag'        => 'noindex, nofollow',
         ]);
+    }
+
+    public function csv(Request $request): Response
+    {
+        return $this->spreadsheet($request, 'csv');
+    }
+
+    public function xlsx(Request $request): Response
+    {
+        return $this->spreadsheet($request, 'xlsx');
+    }
+
+    private function spreadsheet(Request $request, string $format): Response
+    {
+        $slug = (string) $request->routeParam('slug', '');
+        if (!ReportService::exists($slug)) abort(404, 'Report not found.');
+        if ($format === 'xlsx' && !class_exists(\ZipArchive::class)) {
+            abort(503, 'Excel exports require the PHP zip extension.');
+        }
+        $path = $format === 'csv'
+            ? $this->spreadsheets->csv($slug, $request->all())
+            : $this->spreadsheets->xlsx($slug, $request->all());
+        $report = $this->reports->run($slug, $request->all());
+        $user = $this->auth->user() ?? [];
+        try {
+            $this->audit->logRequired('report.exported', 'report', $slug, [
+                'format'=>$format, 'rows'=>(int)$report['total'],
+                'range'=>ReportService::rangeText($report['filters']),
+            ], isset($user['id']) ? (int)$user['id'] : null);
+        } catch (\Throwable $e) {
+            @unlink($path);
+            throw $e;
+        }
+        return Response::temporaryFile(
+            $path,
+            'almarah-' . $slug . '-report-' . gmdate('Ymd-Hi') . '.' . $format,
+            $format === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )->withHeader('X-Robots-Tag','noindex, nofollow');
     }
 
     /** @return array<string,mixed> */

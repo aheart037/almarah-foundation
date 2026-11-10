@@ -1,0 +1,114 @@
+/*! Cinematic hero slider enhancements (V3.7). The base controller (site.js) still handles slides, arrows,
+    dots, autoplay and swipe; this file only adds visuals and keeps them in sync with the .is-active class. */
+(function () {
+  'use strict';
+  var slider = document.getElementById('heroSlider');
+  if (!slider) return;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var slides = Array.prototype.slice.call(slider.querySelectorAll('.hero-slide'));
+  var dots = Array.prototype.slice.call(slider.querySelectorAll('.hero-dots button'));
+  var total = slides.length;
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+
+  function el(tag, cls, parent) { var n = document.createElement(tag); if (cls) n.className = cls; if (parent) parent.appendChild(n); return n; }
+
+  // Light layers
+  ['hs-vignette', 'hs-grade', 'hs-sweep'].forEach(function (c) { el('div', 'hs-fx ' + c, slider).setAttribute('aria-hidden', 'true'); });
+
+  // Split headlines into words for staggered reveal
+  slides.forEach(function (s) {
+    var h = s.querySelector('.slide-box h2');
+    if (!h || h.querySelector('.w')) return;
+    var words = h.textContent.trim().split(/\s+/);
+    h.setAttribute('aria-label', h.textContent.trim());
+    h.textContent = '';
+    words.forEach(function (w, i) {
+      var sp = el('span', 'w', h); sp.style.setProperty('--i', i); sp.setAttribute('aria-hidden', 'true'); sp.textContent = w;
+      h.appendChild(document.createTextNode(' '));
+    });
+  });
+
+  // Counter + thumbnails
+  var ui = el('div', 'hs-ui', slider);
+  if (total > 1) {
+    var counter = el('div', 'hs-counter', ui);
+    var num = el('div', 'hs-num', counter); num.setAttribute('aria-hidden', 'true');
+    var roll = el('div', '', num); // vertical strip of numbers
+    for (var n = 1; n <= total; n++) { var sn = el('span', '', roll); sn.textContent = pad(n); }
+    el('div', 'hs-line', counter);
+    var tot = el('div', 'hs-total', counter); tot.textContent = pad(total); tot.setAttribute('aria-hidden', 'true');
+    var thumbs = el('div', 'hs-thumbs', ui);
+    var thumbEls = slides.map(function (s, k) {
+      var img = s.querySelector('img');
+      var src = img ? (img.getAttribute('src') || img.getAttribute('data-src') || '') : '';
+      var b = el('button', 'hs-thumb', thumbs); b.type = 'button'; b.setAttribute('aria-label', 'Go to slide ' + (k + 1));
+      if (src) b.style.backgroundImage = 'url("' + src.replace(/"/g, '%22') + '")';
+      b.addEventListener('click', function () { if (dots[k]) dots[k].click(); });
+      return b;
+    });
+  }
+
+  var lastIdx = -1;
+  function sync() {
+    var idx = slides.findIndex(function (s) { return s.classList.contains('is-active'); });
+    if (idx < 0) idx = 0;
+    if (idx === lastIdx) return; // our own class changes (hs-run) must not retrigger this
+    lastIdx = idx;
+    if (roll) roll.style.transform = 'translateY(-' + (idx * 100 / total) + '%)';
+    if (typeof thumbEls !== 'undefined') thumbEls.forEach(function (t, k) { t.classList.toggle('is-on', k === idx); });
+    // restart the progress animations in step with the base controller
+    slider.classList.remove('hs-run'); void slider.offsetWidth; if (!reduce) slider.classList.add('hs-run');
+  }
+  if (roll) { roll.style.height = (total * 100) + '%'; roll.style.transition = 'transform .7s cubic-bezier(.7,0,.2,1)'; Array.prototype.forEach.call(roll.children, function (c) { c.style.height = (100 / total) + '%'; c.style.display = 'block'; }); }
+  slides.forEach(function (sl) { new MutationObserver(sync).observe(sl, { attributes: true, attributeFilter: ['class'] }); });
+  sync();
+
+  if (reduce) return;
+
+  // Mouse parallax (eased)
+  var tx = 0, ty = 0, cx = 0, cy = 0, raf = 0, inView = true;
+  slider.addEventListener('mousemove', function (e) {
+    var r = slider.getBoundingClientRect();
+    tx = ((e.clientX - r.left) / r.width - .5) * 2; ty = ((e.clientY - r.top) / r.height - .5) * 2;
+  });
+  slider.addEventListener('mouseleave', function () { tx = ty = 0; });
+  function tick() {
+    cx += (tx - cx) * .07; cy += (ty - cy) * .07;
+    slider.style.setProperty('--hs-px', cx.toFixed(3)); slider.style.setProperty('--hs-py', cy.toFixed(3));
+    drawParticles();
+    raf = (inView && !document.hidden) ? requestAnimationFrame(tick) : 0;
+  }
+
+  // Golden light particles
+  var canvas = el('canvas', 'hs-particles', slider); canvas.setAttribute('aria-hidden', 'true');
+  var ctx = canvas.getContext('2d'), W = 0, H = 0, dpr = 1, parts = [];
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = slider.clientWidth; H = slider.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var count = W < 760 ? 18 : 46;
+    while (parts.length < count) parts.push(spawn(true));
+    parts.length = count;
+  }
+  function spawn(anywhere) {
+    return { x: Math.random() * W, y: anywhere ? Math.random() * H : H + 10, r: .6 + Math.random() * 2.4, vy: .18 + Math.random() * .55,
+      vx: (Math.random() - .5) * .25, ph: Math.random() * 6.28, sp: .01 + Math.random() * .03, hue: Math.random() < .72 ? 46 : 330 };
+  }
+  function drawParticles() {
+    ctx.clearRect(0, 0, W, H);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i]; p.y -= p.vy; p.x += p.vx + Math.sin(p.ph) * .15; p.ph += p.sp;
+      if (p.y < -12 || p.x < -12 || p.x > W + 12) { parts[i] = spawn(false); continue; }
+      var a = (.25 + .55 * Math.abs(Math.sin(p.ph))) * Math.min(1, (H - p.y) / 120, p.y / 90 + .2);
+      var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 5);
+      g.addColorStop(0, 'hsla(' + p.hue + ',95%,72%,' + a.toFixed(3) + ')');
+      g.addColorStop(1, 'hsla(' + p.hue + ',95%,60%,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 5, 0, 6.2832); ctx.fill();
+    }
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  new IntersectionObserver(function (en) { inView = en[0].isIntersecting; if (inView && !raf) raf = requestAnimationFrame(tick); }).observe(slider);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && !raf) raf = requestAnimationFrame(tick); });
+  raf = requestAnimationFrame(tick);
+})();

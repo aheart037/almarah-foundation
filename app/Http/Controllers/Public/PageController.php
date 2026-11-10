@@ -116,15 +116,33 @@ final class PageController extends Controller
         ]);
     }
 
+    /**
+     * Board Members page: every published profile grouped by category, plus the
+     * admin-editable headings. Admin → Board & Team controls all of it.
+     *
+     * @return array<string,mixed>
+     */
+    private function membersData(): array
+    {
+        $groups = [];
+        foreach ($this->cms->teamProfiles() as $profile) {
+            $groups[(string) $profile['group_key']][] = $profile;
+        }
+        return [
+            'teamGroups'   => $groups,
+            'teamSections' => $this->cms->teamSections(),
+        ];
+    }
+
     /** Dynamic data some pages need (all from MySQL). @return array<string,mixed> */
     private function dataFor(string $slug): array
     {
         return match ($slug) {
             'banks'             => ['banks' => $this->cms->bankAccounts()],
             'financial-reports' => ['reports' => $this->cms->financialReports()],
-            'members'           => ['board' => $this->cms->teamProfiles('board'), 'management' => $this->cms->teamProfiles('management')],
+            'members'           => $this->membersData(),
             'mous'              => ['mous' => $this->cms->partners('mou')],
-            'registrations-mou' => ['certificates' => array_merge($this->cms->partners('certificate'), $this->cms->partners('registration'))],
+            'registrations-mou' => ['certificates' => $this->cms->partnersOfKinds(['certificate', 'registration'])],
             'careers'           => ['jobs' => $this->cms->openJobs()],
             'photos'            => ['photos' => $this->cms->media('photo', isset($_GET['album']) ? (string) $_GET['album'] : null), 'albums' => $this->cms->mediaAlbums('photo'), 'album' => isset($_GET['album']) ? (string) $_GET['album'] : ''],
             'videos'            => ['videos' => $this->cms->media('video')],

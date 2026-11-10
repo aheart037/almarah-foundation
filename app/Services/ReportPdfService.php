@@ -26,7 +26,7 @@ final class ReportPdfService
     /**
      * @param array<string,mixed> $report   result of ReportService::run()
      * @param array<int,array{0:string,1:string}> $filters describeFilters() output
-     * @param array{org?:string,by?:string,logo?:?string,compress?:bool} $meta
+     * @param array{org?:string,by?:string,logo?:?string,compress?:bool,rowProvider?:callable():iterable<array<string,mixed>>} $meta
      */
     public function render(array $report, array $filters, array $meta = []): string
     {
@@ -35,7 +35,7 @@ final class ReportPdfService
             (string) $report['title'],
             (string) ($meta['org'] ?? 'Almarah Foundation'),
             (string) ($report['generatedAt'] ?? gmdate('Y-m-d H:i:s')),
-            $meta['logo'] ?? null
+            $meta['logo'] ?? self::resolveLogo()
         );
         if (($meta['compress'] ?? true) === false) {
             $pdf->SetCompression(false); // readable output, used by the tests
@@ -58,7 +58,7 @@ final class ReportPdfService
 
         // ---- meta box: generated, filters, basis ---------------------------
         $pdf->metaBox(array_merge(
-            [['Generated', gmdate('j M Y, H:i', (int) strtotime((string) ($report['generatedAt'] ?? 'now') . ' UTC')) . ' UTC' . (!empty($meta['by']) ? ' by ' . $meta['by'] : '')]],
+            [['Generated', gmdate('j M Y, H:i', (int) strtotime((string) ($report['generatedAt'] ?? 'now') . ' UTC')) . ' UTC' . (!empty($meta['by']) ? ' by ' . $meta['by'] : '')], ['Records', number_format((int)($report['total'] ?? 0)) . (!empty($report['truncated']) ? ' (first ' . number_format(count((array)($report['rows'] ?? []))) . ' shown)' : '')]],
             $filters,
             [['Basis', (string) ($report['basis'] ?? '')]]
         ));
@@ -72,14 +72,14 @@ final class ReportPdfService
         }
 
         // ---- main table ------------------------------------------------------
-        $rows = (array) ($report['rows'] ?? []);
+        $rows = isset($meta['rowProvider']) ? ($meta['rowProvider'])() : (array) ($report['rows'] ?? []);
         $columns = (array) ($report['columns'] ?? []);
         if (!empty($report['rowsTitle'])) {
             $pdf->sectionTitle((string) $report['rowsTitle']);
-        } elseif ($rows !== []) {
-            $pdf->sectionTitle('Results (' . number_format(count($rows)) . ($report['total'] > count($rows) ? ' of ' . number_format((int) $report['total']) : '') . ')');
+        } elseif ((int)($report['total'] ?? 0) > 0) {
+            $pdf->sectionTitle('Results (' . number_format((int)$report['total']) . ')');
         }
-        if ($rows === []) {
+        if ((int)($report['total'] ?? 0) === 0) {
             $pdf->emptyBox('No records match the selected filters.');
         } else {
             $pdf->table($columns, $rows, $cur);
@@ -131,19 +131,18 @@ final class ReportPdfService
     {
         try {
             $path = (string) app(SettingsService::class)->get('site.header_logo', '');
-            if ($path === '' || str_contains($path, '..') || str_contains($path, '\\')) {
-                return null;
+            if ($path !== '' && !str_contains($path, '..') && !str_contains($path, '\\') &&
+                in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['jpg','jpeg','png'], true)) {
+                $abs = \App\Core\Paths::publicPath(app()->basePath()) . '/' . $path;
+                if (is_file($abs)) return $abs;
             }
-            if (!in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png'], true)) {
-                return null; // FPDF cannot read WebP
-            }
-            $abs = \App\Core\Paths::publicPath(app()->basePath()) . '/' . $path;
-
-            return is_file($abs) ? $abs : null;
         } catch (\Throwable) {
-            return null;
+            // CLI tests may have no application instance.
         }
+        $bundled = dirname(__DIR__, 2) . '/assets/images/logo/header-logo-01.png';
+        return is_file($bundled) ? $bundled : null;
     }
+
 }
 
 /**
@@ -201,6 +200,12 @@ class ReportPdfDocument extends \FPDF
             } catch (\Throwable) {
                 $drawn = false; // unsupported image: use the built-in mark
             }
+        }
+        if ($drawn) {
+            $this->SetXY(40, $y);
+            $this->SetFont('Helvetica', 'B', 9);
+            $this->SetTextColor(107, 15, 53);
+            $this->Cell(60, 5, $this->t(strtoupper($this->org)), 0, 0);
         }
         if (!$drawn) {
             $this->SetFillColor(242, 194, 0);
@@ -382,9 +387,9 @@ class ReportPdfDocument extends \FPDF
 
     /**
      * @param array<int,array<string,mixed>> $columns
-     * @param array<int,array<string,mixed>> $rows
+     * @param iterable<array<string,mixed>> $rows
      */
-    public function table(array $columns, array $rows, string $defaultCurrency): void
+    public function table(array $columns, iterable $rows, string $defaultCurrency): void
     {
         $usable = $this->GetPageWidth() - 20;
         $sum = 0.0;

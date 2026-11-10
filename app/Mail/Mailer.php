@@ -262,7 +262,7 @@ final class Mailer
 
     // ---------------------------------------------------------------- payment
 
-    public function donationReceipt(string $email, string $name, array $donation, string $fundraiserTitle, string $gatewayLabel): void
+    public function donationReceipt(string $email, string $name, array $donation, string $fundraiserTitle, string $gatewayLabel, ?string $resendKey = null): void
     {
         $this->queue->enqueue('donation.receipt', $email, $name, [
             'heading'          => 'Thank you for your donation',
@@ -277,7 +277,7 @@ final class Mailer
             'body'             => 'Your donation has been received. This email is your official receipt — please keep it for your records.',
             'cta_label'        => 'View the fundraiser',
             'cta_url'          => $donation['_fundraiser_url'] ?? base_url('fundraisers'),
-        ], 'donation.receipt:' . $donation['id']);
+        ], 'donation.receipt:' . $donation['id'] . ($resendKey ? ':' . $resendKey : ''));
     }
 
     public function donationPending(string $email, string $name, array $donation, string $gatewayLabel): void

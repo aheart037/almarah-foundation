@@ -40,6 +40,7 @@ $isActiveItem = static function (array $item) use ($navService, $currentPath): b
     </a>
 
     <nav class="main-nav" id="mainNav" aria-label="Main navigation">
+      <div class="drawer-head" aria-hidden="true"><span class="drawer-title">Menu</span><span class="drawer-tag">Give today, change a life</span></div>
       <ul class="nav-list">
         <?php foreach ($headerNav as $i => $item): ?>
           <?php $hasChildren = !empty($item['children']); $active = $isActiveItem($item); ?>
@@ -52,10 +53,17 @@ $isActiveItem = static function (array $item) use ($navService, $currentPath): b
               <button class="submenu-toggle" type="button" aria-label="Toggle <?= e($item['label']) ?> submenu" aria-expanded="false" aria-controls="submenu-<?= $i ?>">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </button>
-              <ul class="submenu" id="submenu-<?= $i ?>">
+              <?php $kids = count($item['children']); $cols = $kids <= 4 ? 1 : ($kids <= 9 ? 2 : 3); ?>
+              <ul class="submenu mega mega-cols-<?= $cols ?>" id="submenu-<?= $i ?>">
                 <?php foreach ($item['children'] as $child): ?>
-                  <li><a href="<?= e($child['href']) ?>"<?= $child['newtab'] ? ' target="_blank" rel="noopener"' : '' ?><?= $navService !== null && $navService->isActive($child, $currentPath) ? ' aria-current="page" class="is-active"' : '' ?>><?= e($child['label']) ?></a></li>
+                  <li><a href="<?= e($child['href']) ?>"<?= $child['newtab'] ? ' target="_blank" rel="noopener"' : '' ?><?= $navService !== null && $navService->isActive($child, $currentPath) ? ' aria-current="page" class="is-active"' : '' ?>><span class="mega-dot" aria-hidden="true"></span><span class="mega-label"><?= e($child['label']) ?></span><svg class="mega-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
                 <?php endforeach; ?>
+                <li class="mega-intro" aria-hidden="false">
+                  <span class="mega-kicker">Explore</span>
+                  <strong><?= e($item['label']) ?></strong>
+                  <p>Give today, change a life.</p>
+                  <a class="mega-cta" href="<?= e(base_url('donate')) ?>" tabindex="-1">Donate now <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                </li>
               </ul>
             <?php else: ?>
               <a class="nav-link" href="<?= e($item['href']) ?>"<?= $item['newtab'] ? ' target="_blank" rel="noopener"' : '' ?><?= $active ? ' aria-current="page"' : '' ?>><?= e($item['label']) ?></a>
@@ -65,13 +73,13 @@ $isActiveItem = static function (array $item) use ($navService, $currentPath): b
       </ul>
       <div class="nav-ctas nav-ctas-mobile">
         <a class="btn btn-outline" href="<?= e($fundraiseUrl) ?>" target="_blank" rel="noopener">Start Fundraising</a>
-        <a class="btn btn-gold" href="<?= e(base_url('donate')) ?>">Donate Now</a>
+        <a class="btn btn-gold btn-donate" href="<?= e(base_url('donate')) ?>"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span>Donate Now</span></a>
       </div>
     </nav>
 
     <div class="header-actions">
       <a class="btn btn-outline hide-sm" href="<?= e($fundraiseUrl) ?>" target="_blank" rel="noopener">Start Fundraising</a>
-      <a class="btn btn-gold" href="<?= e(base_url('donate')) ?>">Donate Now</a>
+      <a class="btn btn-gold btn-donate" href="<?= e(base_url('donate')) ?>"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span>Donate Now</span></a>
       <button class="nav-toggle" id="navToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mainNav">
         <span></span><span></span><span></span>
       </button>

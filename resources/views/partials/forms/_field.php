@@ -10,7 +10,7 @@ $id = 'f-' . preg_replace('/[^a-z0-9_-]/i', '-', $name);
 $err = error_for($name);
 $val = old($name, (string) ($f['value'] ?? ''));
 $req = !empty($f['required']);
-$attrs = ($req ? ' required' : '') . (!empty($f['autocomplete']) ? ' autocomplete="' . e($f['autocomplete']) . '"' : '') . (!empty($f['max']) ? ' maxlength="' . (int) $f['max'] . '"' : '');
+$attrs = ($req ? ' required' : '') . (!empty($f['autocomplete']) ? ' autocomplete="' . e($f['autocomplete']) . '"' : '') . (!empty($f['max']) ? ' maxlength="' . (int) $f['max'] . '"' : '') . (!empty($f['min']) ? ' minlength="' . (int) $f['min'] . '"' : '');
 ?>
 <div class="field<?= $err !== '' ? ' has-error' : '' ?><?= !empty($f['wide']) ? ' field-wide' : '' ?>">
     <?php if ($type !== 'radio' && $type !== 'checkbox'): ?>

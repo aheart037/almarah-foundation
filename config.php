@@ -24,14 +24,14 @@ return [
     'db_user' => '',
 
     // 3. Database password
-    'db_pass' => '',
+    'db_pass' => '@123',
 
     // Database server. 'localhost' is correct on almost every cPanel host.
     'db_host' => 'localhost',
 
     // Your website address, starting with https:// (no trailing slash).
     // This is the address the banks send donors back to after a payment.
-    'site_url' => 'https://almarah.org',
+    'site_url' => 'https://softex.pk/donate',
 
     // Optional: time zone used for dates in the admin and emails.
     'timezone' => 'Asia/Karachi',
@@ -42,7 +42,7 @@ return [
      *  admin dashboard will show fundraising statistics. Leave empty to
      *  disable. The website never writes to that database.
      * ---------------------------------------------------------------------- */
-    'fundraise_db_host' => '',
+    'fundraise_db_host' => 'localhost',
     'fundraise_db_name' => '',
     'fundraise_db_user' => '',
     'fundraise_db_pass' => '',

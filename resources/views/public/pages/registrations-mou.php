@@ -1,8 +1,11 @@
 <?php
 /**
- * Migrated page body: registrations-mou (source: almarah-foundation/certificates-and-registrations.php).
- * Markup preserved from the original site; styles live in assets/css/pages/registrations-mou.css.
+ * Certificates & Registrations page — records are database-driven (V3.6).
+ * Content source: Admin → MOUs & Certificates (types "Certificate" and "Registration").
+ *
+ * @var list<array<string,mixed>> $certificates published records, already in admin order
  */
+$certificates = is_array($certificates ?? null) ? $certificates : [];
 ?>
 <!-- HERO -->
 <section class="lc-hero">
@@ -44,11 +47,19 @@
         </div>
 
         <div class="lc-grid">
+<?php if ($certificates === []): ?>
+            <p class="lc-section-desc">Our certificates and registrations will be listed here soon.</p>
+<?php endif; ?>
+<?php foreach ($certificates as $c):
+    $doc = trim((string) ($c['document_path'] ?? ''));
+    $link = trim((string) ($c['external_url'] ?? ''));
+    $href = $doc !== '' ? asset($doc) : (preg_match('~^https?://~i', $link) ? $link : '');
+    $action = $doc !== '' ? 'View PDF' : ($href !== '' ? 'View online' : '');
+    $expires = trim((string) ($c['expires_on'] ?? ''));
+    $tag = $href !== '' ? 'a' : 'div';
+    ?>
 
-            <!-- 1. FBR Taxpayer -->
-            <a href="<?= e(asset('assets/documents/TaxPayer-Registration-Certificate.pdf')) ?>"
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
+            <<?= $tag ?><?php if ($href !== ''): ?> href="<?= e($href) ?>" target="_blank" rel="noopener noreferrer"<?php endif; ?> class="lc-card">
                 <div class="lc-card-icon-wrap">
                     <svg viewBox="0 0 24 24">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -59,180 +70,28 @@
                     </svg>
                 </div>
                 <div class="lc-card-info">
-                    <div class="lc-card-title">FBR Taxpayer Registration Certificate</div>
+                    <div class="lc-card-title"><?= e((string) $c['name']) ?></div>
+                    <?php if ($action !== '' || $expires !== ''): ?>
                     <div class="lc-card-meta">
+                        <?php if ($action !== ''): ?>
                         <span class="lc-card-type">
                             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
+                            <?= e($action) ?>
                         </span>
+                        <?php endif; ?>
+                        <?php if ($expires !== ''): ?>
+                        <span class="lc-card-type">Valid until <?= e(dt($expires, 'j M Y')) ?></span>
+                        <?php endif; ?>
                     </div>
+                    <?php endif; ?>
                 </div>
+                <?php if ($href !== ''): ?>
                 <div class="lc-card-arrow">
                     <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </div>
-            </a>
-
-            <!-- 2. FBR Tax Exemption -->
-            <a href="<?= e(asset('assets/documents/Certificate-under-section-236-Tax-Exampation-FBR-30-6-2028.pdf')) ?>"
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
-                <div class="lc-card-icon-wrap">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                </div>
-                <div class="lc-card-info">
-                    <div class="lc-card-title">FBR Tax Exemption Certificate</div>
-                    <div class="lc-card-meta">
-                        <span class="lc-card-type">
-                            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-card-arrow">
-                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </div>
-            </a>
-
-            <!-- 3. Child Protection Bureau -->
-            <a href="<?= e(asset('assets/documents/Child-Protection-Certificate-2025.pdf')) ?>"
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
-                <div class="lc-card-icon-wrap">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                </div>
-                <div class="lc-card-info">
-                    <div class="lc-card-title">Registration Certificate – Child Protection Bureau</div>
-                    <div class="lc-card-meta">
-                        <span class="lc-card-type">
-                            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-card-arrow">
-                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </div>
-            </a>
-
-            <!-- 4. Home Department -->
-            <a href="<?= e(asset('assets/documents/home-department-donation.pdf')) ?>"
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
-                <div class="lc-card-icon-wrap">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                </div>
-                <div class="lc-card-info">
-                    <div class="lc-card-title">Registration Certificate – Home Department (Donations)</div>
-                    <div class="lc-card-meta">
-                        <span class="lc-card-type">
-                            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-card-arrow">
-                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </div>
-            </a>
-
-            <!-- 5. Punjab Charity Commission -->
-            <a href=<?= e(asset('assets/documents/PUNJAB-CHARITY-CERTIFICATE-22-9-2025-TO-22-9-2027.pdf')) ?>"
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
-                <div class="lc-card-icon-wrap">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                </div>
-                <div class="lc-card-info">
-                    <div class="lc-card-title">Registration Certificate – Punjab Charity Commission</div>
-                    <div class="lc-card-meta">
-                        <span class="lc-card-type">
-                            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-card-arrow">
-                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </div>
-            </a>
-
-            <!-- 6. Joint Stock Companies -->
-            <a href="<?= e(asset('assets/documents/Joint-stock-Certificate-2026.pdf')) ?>" 
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
-                <div class="lc-card-icon-wrap">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                </div>
-                <div class="lc-card-info">
-                    <div class="lc-card-title">Registration Certificate – Joint Stock Companies</div>
-                    <div class="lc-card-meta">
-                        <span class="lc-card-type">
-                            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-card-arrow">
-                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </div>
-            </a>
-            
-     <!-- 7. Joint Stock Companies -->
-            <a href="<?= e(asset('assets/documents/iso.pdf')) ?>" 
-               target="_blank" rel="noopener noreferrer"
-               class="lc-card">
-                <div class="lc-card-icon-wrap">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                </div>
-                <div class="lc-card-info">
-                    <div class="lc-card-title">Certificate of Registration for ISO 9001:2015 Quality Management System</div>
-                    <div class="lc-card-meta">
-                        <span class="lc-card-type">
-                            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            View PDF
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-card-arrow">
-                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </div>
-            </a>
+                <?php endif; ?>
+            </<?= $tag ?>>
+<?php endforeach; ?>
 
         </div>
     </div>

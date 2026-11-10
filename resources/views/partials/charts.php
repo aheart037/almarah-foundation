@@ -16,7 +16,7 @@ if (!function_exists('ch_area')) {
      *
      * @param array<int,array{label:string,minor:int,count:int}> $series oldest first
      */
-    function ch_area(array $series, string $id = 'trend'): string
+    function ch_area(array $series, string $id = 'trend', string $currency = 'PKR', string $description = 'Confirmed donations per day, last 30 days'): string
     {
         $n = count($series);
         $max = 0;
@@ -25,7 +25,7 @@ if (!function_exists('ch_area')) {
         }
         if ($n < 2 || $max <= 0) {
             return '<div class="ch-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/><path d="M3 21h18"/></svg>'
-                . '<p>No confirmed donations in the last 30 days yet. This chart fills in as soon as the first one arrives.</p></div>';
+                . '<p>No verified donations in this period yet. This chart fills in when a gift is verified.</p></div>';
         }
 
         // Round the top of the scale up to a tidy number.
@@ -44,7 +44,7 @@ if (!function_exists('ch_area')) {
         $y = static fn (int|float $v): float => $padT + $ph - ($ph * $v / $top);
 
         $safeId = preg_replace('/[^a-z0-9_-]/i', '', $id) ?: 'trend';
-        $svg = '<svg class="ch-svg" viewBox="0 0 ' . $w . ' ' . $h . '" role="img" aria-label="Confirmed donations per day, last 30 days">';
+        $svg = '<svg class="ch-svg" viewBox="0 0 ' . $w . ' ' . $h . '" role="img" aria-label="' . e($description) . '">';
         $svg .= '<defs><linearGradient id="chg-' . $safeId . '" x1="0" y1="0" x2="0" y2="1">'
             . '<stop offset="0" stop-color="#a92d63" stop-opacity=".32"/><stop offset="1" stop-color="#a92d63" stop-opacity="0"/>'
             . '</linearGradient></defs>';
@@ -55,12 +55,12 @@ if (!function_exists('ch_area')) {
             $gy = round($y($val), 1);
             $svg .= '<line class="ch-grid" x1="' . $padL . '" x2="' . ($w - $padR) . '" y1="' . $gy . '" y2="' . $gy . '"/>';
             $svg .= '<text class="ch-axis" x="' . ($padL - 8) . '" y="' . ($gy + 4) . '" text-anchor="end">'
-                . e($val > 0 ? money_short((int) round($val)) : '0') . '</text>';
+                . e($val > 0 ? money_short((int) round($val), $currency) : '0') . '</text>';
         }
 
         // X labels.
         foreach ($series as $i => $p) {
-            if ($i % 5 === 0 || $i === $n - 1) {
+            if ($i % ($n <= 12 ? 2 : 5) === 0 || $i === $n - 1) {
                 if ($i !== $n - 1 && $n - 1 - $i < 3) {
                     continue;
                 }
@@ -85,7 +85,7 @@ if (!function_exists('ch_area')) {
         foreach ($series as $i => $p) {
             $cx = round($x($i), 1);
             $cy = round($y((int) $p['minor']), 1);
-            $tip = (string) $p['label'] . ' · ' . money((int) $p['minor']) . ' · '
+            $tip = (string) $p['label'] . ' · ' . money((int) $p['minor'], $currency) . ' · '
                 . (int) $p['count'] . ' donation' . ((int) $p['count'] === 1 ? '' : 's');
             $svg .= '<g class="ch-pt">'
                 . '<line class="ch-guide" opacity="0" x1="' . $cx . '" x2="' . $cx . '" y1="' . $padT . '" y2="' . $base . '"/>'
@@ -213,12 +213,14 @@ if (!function_exists('ch_status_slices')) {
             'In progress' => ['color' => '#f2c200', 'statuses' => ['pending', 'processing']],
             'Failed or cancelled' => ['color' => '#b3261e', 'statuses' => ['failed', 'cancelled', 'abandoned']],
             'Refunded'   => ['color' => '#6b7bb8', 'statuses' => ['refunded']],
+            'Rejected review' => ['color' => '#7a2948', 'statuses' => ['rejected']],
+            'Unverified / legacy' => ['color' => '#8e8d8d', 'statuses' => []],
         ];
         $out = [];
         foreach ($groups as $label => $g) {
             $sum = 0;
             foreach ($rows as $r) {
-                if (in_array((string) ($r['status'] ?? ''), $g['statuses'], true)) {
+                if (in_array((string) ($r['status'] ?? ''), $g['statuses'], true) || ($label === 'Unverified / legacy' && str_starts_with((string)($r['status'] ?? ''), 'unverified '))) {
                     $sum += (int) ($r['c'] ?? 0);
                 }
             }

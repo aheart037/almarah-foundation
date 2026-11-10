@@ -15,6 +15,7 @@ final class Response
     /** @var array<string,string> */
     private array $headers;
     private ?string $filePath = null;
+    private bool $deleteFileAfterSend = false;
 
     public function __construct(string $body = '', int $status = 200, array $headers = [])
     {
@@ -55,6 +56,14 @@ final class Response
         ]);
         $r->filePath = $path;
         return $r;
+    }
+
+    /** Stream a private, one-use export file and remove it after the response. */
+    public static function temporaryFile(string $path, string $filename, string $mime): self
+    {
+        $response = self::file($path, $filename, $mime);
+        $response->deleteFileAfterSend = true;
+        return $response;
     }
 
     /** File download (CSV exports etc.). $filename must be a safe ASCII name. */
@@ -217,7 +226,11 @@ final class Response
                     ob_end_clean();
                 }
             }
-            readfile($this->filePath);
+            try {
+                readfile($this->filePath);
+            } finally {
+                if ($this->deleteFileAfterSend) @unlink($this->filePath);
+            }
             return;
         }
 

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Core\Csrf;
 use App\Core\Database;
+use App\Core\Config;
 use App\Core\Response;
 use App\Core\Session;
 use App\Core\View;
@@ -43,35 +44,74 @@ final class DashboardController extends Controller
 
         if ($this->auth->can('donations.view')) {
             $data['finance'] = $this->guard(function (): array {
+                // Dashboard money is always one currency and staff-verified only.
+                // Legacy completed gifts and other currencies are never silently mixed in.
+                $currency = (string) Config::get('app.currency', 'PKR');
+                $confirmed = "status = 'completed' AND verification_status = 'verified' AND currency = :currency";
                 $daily = chart_fill_days($this->db->select(
                     "SELECT DATE(COALESCE(completed_at, created_at)) AS day, COALESCE(SUM(amount_minor), 0) AS minor, COUNT(*) AS cnt
-                       FROM donations
-                      WHERE status = 'completed' AND COALESCE(completed_at, created_at) >= DATE_SUB(UTC_DATE(), INTERVAL 59 DAY)
-                      GROUP BY day"
+                       FROM donations WHERE {$confirmed}
+                         AND COALESCE(completed_at, created_at) >= DATE_SUB(UTC_DATE(), INTERVAL 59 DAY)
+                       GROUP BY day", ['currency' => $currency]
                 ), 60);
+                $monthlyRows = $this->db->select(
+                    "SELECT DATE_FORMAT(COALESCE(completed_at, created_at), '%Y-%m') AS month,
+                            COALESCE(SUM(amount_minor), 0) AS minor, COUNT(*) AS cnt
+                       FROM donations WHERE {$confirmed}
+                         AND COALESCE(completed_at, created_at) >= DATE_FORMAT(DATE_SUB(UTC_DATE(), INTERVAL 11 MONTH), '%Y-%m-01')
+                       GROUP BY month", ['currency' => $currency]
+                );
+                $byMonth = array_column($monthlyRows, null, 'month');
+                $monthly = [];
+                $first = new \DateTimeImmutable('first day of this month', new \DateTimeZone('UTC'));
+                for ($i = 11; $i >= 0; $i--) {
+                    $date = $first->modify("-{$i} months");
+                    $row = $byMonth[$date->format('Y-m')] ?? [];
+                    $monthly[] = ['label' => $date->format('M y'), 'minor' => (int) ($row['minor'] ?? 0), 'count' => (int) ($row['cnt'] ?? 0)];
+                }
                 $trend = array_slice($daily, 30);
                 $prev = array_slice($daily, 0, 30);
                 return [
-                    'totals'        => $this->donations->totalsByStatus(),
+                    'currency'      => $currency,
                     'trend'         => $trend,
+                    'monthlyTrend'  => $monthly,
                     'trendPrevMinor' => array_sum(array_column($prev, 'minor')),
                     'trendPrevCount' => array_sum(array_column($prev, 'count')),
                     'month'         => $this->db->selectOne(
                         "SELECT COALESCE(SUM(amount_minor),0) AS minor, COUNT(*) AS cnt FROM donations
-                          WHERE status = 'completed' AND DATE_FORMAT(COALESCE(completed_at, created_at), '%Y-%m') = DATE_FORMAT(UTC_DATE(), '%Y-%m')"
+                          WHERE {$confirmed} AND COALESCE(completed_at, created_at) >= DATE_FORMAT(UTC_DATE(), '%Y-%m-01')",
+                        ['currency' => $currency]
                     ) ?? ['minor' => 0, 'cnt' => 0],
+                    'verified'      => $this->db->selectOne(
+                        "SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_minor),0) AS minor FROM donations WHERE {$confirmed}",
+                        ['currency' => $currency]
+                    ) ?? ['cnt' => 0, 'minor' => 0],
+                    'awaitingReview' => $this->db->int(
+                        "SELECT COUNT(*) FROM donations WHERE verification_status IN ('submitted', 'initial_review', 'verification_officer', 'finance_manager')
+                          AND status NOT IN ('failed','cancelled','refunded')"
+                    ),
+                    'donors'        => $this->db->int('SELECT COUNT(*) FROM donors'),
                     'pending'       => $this->db->int("SELECT COUNT(*) FROM donations WHERE status IN ('pending','processing')"),
                     'failed'        => $this->db->int("SELECT COUNT(*) FROM donations WHERE status IN ('failed','cancelled') AND created_at >= DATE_SUB(UTC_DATE(), INTERVAL 30 DAY)"),
                     'byPurpose'     => $this->db->select(
                         "SELECT COALESCE(p.name, 'General Fund') AS name, COALESCE(SUM(d.amount_minor),0) AS minor, COUNT(d.id) AS cnt
                            FROM donations d LEFT JOIN donation_purposes p ON p.id = d.purpose_id
-                          WHERE d.status = 'completed' AND COALESCE(d.completed_at, d.created_at) >= DATE_SUB(UTC_DATE(), INTERVAL 90 DAY)
-                          GROUP BY COALESCE(p.name, 'General Fund') ORDER BY minor DESC LIMIT 6"
+                          WHERE d.status = 'completed' AND d.verification_status = 'verified' AND d.currency = :currency
+                            AND COALESCE(d.completed_at, d.created_at) >= DATE_SUB(UTC_DATE(), INTERVAL 90 DAY)
+                          GROUP BY COALESCE(p.name, 'General Fund') ORDER BY minor DESC LIMIT 6",
+                        ['currency' => $currency]
                     ),
                     'recent'        => $this->donations->recent(8),
                     'gatewayHealth' => $this->settings->gatewayStatus(),
                 ];
             });
+        }
+
+        if ($this->auth->isAdmin() || $this->auth->can('reports.view')) {
+            $data['campaignStats'] = $this->guard(fn (): array => [
+                'active' => $this->db->int("SELECT COUNT(*) FROM campaigns WHERE status = 'active' AND deleted_at IS NULL AND (start_at IS NULL OR start_at <= UTC_DATE()) AND (end_at IS NULL OR end_at >= UTC_DATE())"),
+                'fundraisers' => $this->db->int("SELECT COUNT(*) FROM fundraisers WHERE status = 'published' AND approval_status = 'approved' AND deleted_at IS NULL AND (start_at IS NULL OR start_at <= UTC_DATE()) AND (end_at IS NULL OR end_at >= UTC_DATE())"),
+            ]);
         }
 
         if ($this->auth->can('forms.view') || $this->auth->can('volunteers.manage')) {

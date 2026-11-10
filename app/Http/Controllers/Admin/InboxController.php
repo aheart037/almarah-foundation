@@ -109,7 +109,43 @@ final class InboxController extends Controller
         ];
     }
 
-    /** Unread counts for the sidebar badge (only boxes the user may see). */
+    /** @var array<string,bool> table => has a read_at column (checked once per request) */
+    private static array $readAtCache = [];
+
+    /** Whether migration 0021 (read_at) has been applied to this inbox table. */
+    public static function hasReadAt(Database $db, string $table): bool
+    {
+        if (!array_key_exists($table, self::$readAtCache)) {
+            try {
+                self::$readAtCache[$table] = $db->int(
+                    'SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = :t AND column_name = :c',
+                    ['t' => $table, 'c' => 'read_at']
+                ) > 0;
+            } catch (\Throwable) {
+                self::$readAtCache[$table] = false;
+            }
+        }
+        return self::$readAtCache[$table];
+    }
+
+    /**
+     * SQL condition (no leading WHERE) matching UNREAD items of a box: still in an
+     * "open" status and never opened by staff. Falls back to the status check alone
+     * until migration 0021 adds the read_at column.
+     *
+     * @param array<string,mixed> $box
+     */
+    public static function unreadWhere(Database $db, array $box): string
+    {
+        $in = "'" . implode("','", $box['open']) . "'";
+        $sql = "status IN ({$in})";
+        if (self::hasReadAt($db, (string) $box['table'])) {
+            $sql .= ' AND read_at IS NULL';
+        }
+        return $sql;
+    }
+
+    /** Unread counts for the sidebar badge and tabs (only boxes the user may see). */
     public static function openCounts(Database $db, AuthService $auth): array
     {
         $counts = [];
@@ -117,9 +153,8 @@ final class InboxController extends Controller
             if (!$auth->can($box['permission'])) {
                 continue;
             }
-            $in = "'" . implode("','", $box['open']) . "'";
             try {
-                $counts[$key] = $db->int("SELECT COUNT(*) FROM `{$box['table']}` WHERE status IN ({$in})");
+                $counts[$key] = $db->int("SELECT COUNT(*) FROM `{$box['table']}` WHERE " . self::unreadWhere($db, $box));
             } catch (\Throwable) {
                 $counts[$key] = 0;
             }
@@ -134,10 +169,15 @@ final class InboxController extends Controller
 
         $q = trim($request->string('q'));
         $status = $request->string('status');
+        // Default view: unread items only. "?view=all" is an explicit opt-in to browse read items.
+        $showAll = $request->string('view') === 'all';
         $where = [];
         $params = [];
 
-        if ($status !== '' && isset($box['statuses'][$status])) {
+        if (!$showAll) {
+            $where[] = self::unreadWhere($this->db, $box);
+            $status = '';
+        } elseif ($status !== '' && isset($box['statuses'][$status])) {
             $where[] = 'status = :status';
             $params['status'] = $status;
         }
@@ -178,7 +218,8 @@ final class InboxController extends Controller
             'page'         => $page,
             'lastPage'     => $lastPage,
             'total'        => $total,
-            'query'        => array_filter(['q' => $q, 'status' => $status]),
+            'showAll'      => $showAll,
+            'query'        => array_filter(['q' => $q, 'status' => $status, 'view' => $showAll ? 'all' : '']),
         ], 'layouts/admin');
     }
 
@@ -187,11 +228,13 @@ final class InboxController extends Controller
         $box = $this->box($request);
         $row = $this->find($box, (int) $request->routeParam('id', 0));
 
-        // Opening a brand-new item marks it as read (contact box only).
+        // Opening a brand-new contact message moves it to "Read".
         if ($box['key'] === 'contact' && $row['status'] === 'new') {
             $this->db->update($box['table'], ['status' => 'read'], 'id = :id', ['id' => (int) $row['id']]);
             $row['status'] = 'read';
         }
+        // Any box: opening an item marks it read, so it leaves the unread list and the badge count.
+        $this->markRead($box, $row);
 
         $reviewer = null;
         if (!empty($box['reviewed']) && !empty($row['reviewed_by'])) {
@@ -217,6 +260,9 @@ final class InboxController extends Controller
             return $this->back('/admin/inbox/' . $box['key']);
         }
         $data = ['status' => $status];
+        if (self::hasReadAt($this->db, (string) $box['table']) && empty($row['read_at'])) {
+            $data['read_at'] = gmdate('Y-m-d H:i:s');
+        }
         if (empty($box['no_notes'])) {
             $notes = trim($request->string('admin_notes'));
             $data['admin_notes'] = $notes !== '' ? mb_substr($notes, 0, 10000) : null;
@@ -321,6 +367,20 @@ final class InboxController extends Controller
     }
 
     // ------------------------------------------------------------- internals
+
+    /**
+     * @param array<string,mixed> $box
+     * @param array<string,mixed> $row
+     */
+    private function markRead(array $box, array &$row): void
+    {
+        if (!self::hasReadAt($this->db, (string) $box['table']) || !empty($row['read_at'])) {
+            return;
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        $this->db->update($box['table'], ['read_at' => $now], 'id = :id', ['id' => (int) $row['id']]);
+        $row['read_at'] = $now;
+    }
 
     /** @return array<string,mixed> */
     private function box(Request $request): array

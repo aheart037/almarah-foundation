@@ -40,6 +40,7 @@ final class DonationRepository
             'donor_message'    => $data['donor_message'] ?? null,
             'anonymous'        => !empty($data['anonymous']) ? 1 : 0,
             'status'           => $data['status'] ?? 'pending',
+            'verification_status' => $data['verification_status'] ?? 'submitted',
         ]);
     }
 
@@ -153,10 +154,56 @@ final class DonationRepository
         if (!empty($filters['q'])) {
             $where[] = '(d.public_reference LIKE :q OR dn.name LIKE :q2 OR dn.email LIKE :q3
                          OR f.title LIKE :q4 OR pt.provider_transaction_id LIKE :q5
-                         OR pt.merchant_order_id LIKE :q6)';
+                         OR pt.merchant_order_id LIKE :q6 OR d.bank_reference LIKE :q7
+                         OR d.receipt_number LIKE :q8 OR d.referrer_name LIKE :q9 OR d.recipient_name LIKE :q10)';
             $like = '%' . $filters['q'] . '%';
-            for ($i = 1; $i <= 6; $i++) {
+            for ($i = 1; $i <= 10; $i++) {
                 $params['q' . ($i === 1 ? '' : $i)] = $like;
+            }
+        }
+
+        $searchFields = [
+            'donor_name' => 'dn.name', 'phone' => 'dn.phone', 'email' => 'dn.email',
+            'receipt_number' => 'd.receipt_number',
+            'recipient' => 'd.recipient_name', 'referrer' => 'd.referrer_name',
+        ];
+        foreach ($searchFields as $key => $column) {
+            $value = trim((string) ($filters[$key] ?? ''));
+            if ($value !== '') {
+                $where[] = "{$column} LIKE :{$key}";
+                $params[$key] = '%' . substr($value, 0, 150) . '%';
+            }
+        }
+        if (trim((string) ($filters['transaction_id'] ?? '')) !== '') {
+            $where[] = '(d.bank_reference LIKE :txn_ref OR pt.provider_transaction_id LIKE :txn_provider OR pt.merchant_order_id LIKE :txn_order)';
+            $value = '%' . substr(trim((string) $filters['transaction_id']), 0, 120) . '%';
+            $params['txn_ref'] = $params['txn_provider'] = $params['txn_order'] = $value;
+        }
+        if (!empty($filters['verification_status']) && in_array($filters['verification_status'], ['legacy', 'submitted', 'initial_review', 'verification_officer', 'finance_manager', 'rejected', 'verified'], true)) {
+            $where[] = 'd.verification_status = :verification_status';
+            $params['verification_status'] = $filters['verification_status'];
+        }
+        if (!empty($filters['payment_method']) && in_array($filters['payment_method'], ['bank_transfer','online_transfer','cash','cheque','zelle','other','meezan','etisalat'], true)) {
+            $where[] = '(d.payment_method = :payment_method OR g.code = :payment_gateway)';
+            $params['payment_method'] = $filters['payment_method'];
+            $params['payment_gateway'] = $filters['payment_method'];
+        }
+        if (!empty($filters['staff_member'])) {
+            $staff = trim((string) $filters['staff_member']);
+            if (ctype_digit($staff)) {
+                $where[] = '(d.recorded_by = :staff1 OR d.verified_by = :staff2 OR EXISTS (SELECT 1 FROM donation_review_events de WHERE de.donation_id=d.id AND de.actor_user_id=:staff3))';
+                $params['staff1'] = $params['staff2'] = $params['staff3'] = (int) $staff;
+            } else {
+                $where[] = '(creator.email LIKE :staff_email OR verifier.email LIKE :staff_email2 OR EXISTS (SELECT 1 FROM donation_review_events de JOIN users reviewer ON reviewer.id=de.actor_user_id WHERE de.donation_id=d.id AND reviewer.email LIKE :staff_email3))';
+                $params['staff_email'] = $params['staff_email2'] = $params['staff_email3'] = '%' . substr($staff, 0, 100) . '%';
+            }
+        }
+        foreach (['amount_min' => '>=', 'amount_max' => '<='] as $key => $op) {
+            $value = (string) ($filters[$key] ?? '');
+            if ($value !== '' && preg_match('/^[0-9]{1,10}(?:\.[0-9]{1,2})?$/', $value)) {
+                [$units, $decimals] = array_pad(explode('.', $value, 2), 2, '');
+                $where[] = "d.amount_minor {$op} :{$key}";
+                $params[$key] = (int) $units * 100 + (int) str_pad($decimals, 2, '0');
             }
         }
 
@@ -187,12 +234,12 @@ final class DonationRepository
         }
 
         if (!empty($filters['date_from'])) {
-            $where[] = 'd.created_at >= :from';
+            $where[] = 'COALESCE(d.transaction_at, d.created_at) >= :from';
             $params['from'] = $filters['date_from'] . ' 00:00:00';
         }
 
         if (!empty($filters['date_to'])) {
-            $where[] = 'd.created_at <= :to';
+            $where[] = 'COALESCE(d.transaction_at, d.created_at) <= :to';
             $params['to'] = $filters['date_to'] . ' 23:59:59';
         }
 
@@ -201,15 +248,18 @@ final class DonationRepository
 
         $base = "FROM donations d
                  LEFT JOIN donors dn ON dn.id = d.donor_id
+                 LEFT JOIN users creator ON creator.id = d.recorded_by
+                 LEFT JOIN users verifier ON verifier.id = d.verified_by
                  LEFT JOIN gateways g ON g.id = d.gateway_id
                  LEFT JOIN fundraisers f ON f.id = d.fundraiser_id
                  LEFT JOIN donation_purposes dp ON dp.id = d.purpose_id
-                 LEFT JOIN payment_transactions pt ON pt.donation_id = d.id";
+                 LEFT JOIN payment_transactions pt ON pt.id = (SELECT MAX(pt2.id) FROM payment_transactions pt2 WHERE pt2.donation_id=d.id)";
 
         $total = $this->db->int("SELECT COUNT(DISTINCT d.id) {$base} WHERE {$clause}", $params);
 
         $rows = $this->db->select(
-            "SELECT d.*, dn.name AS donor_name, dn.email AS donor_email, g.code AS gateway_code,
+            "SELECT d.*, dn.name AS donor_name, dn.email AS donor_email, dn.phone AS donor_phone,
+                    creator.email AS created_by_email, verifier.email AS verified_by_email, g.code AS gateway_code,
                     f.title AS fundraiser_title, f.slug AS fundraiser_slug, dp.name AS purpose_name,
                     pt.provider_transaction_id, pt.merchant_order_id, pt.provider_response_code,
                     pt.environment

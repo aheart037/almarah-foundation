@@ -1,0 +1,87 @@
+/* Cinematic home slider (V3.7). Layered on top of site.css / hero-v32.css: the existing controller keeps
+   toggling .is-active; everything here is presentation. Disabled by prefers-reduced-motion. */
+.hero-slider{--hs-gold:#F2C200;--hs-rose:#A92D63;--hs-wine:#6B0F35;isolation:isolate;background:#14060c}
+/* --- picture: slow Ken Burns zoom + mouse parallax + colour grade --- */
+.hero-slide{transition:opacity 1.3s ease,visibility 1.3s}
+.hero-slide picture,.hero-slide img{will-change:transform;backface-visibility:hidden;image-rendering:auto;
+  translate:calc(var(--hs-px,0) * -14px) calc(var(--hs-py,0) * -9px);transition:translate .35s ease-out}
+.hero-slide img{transform:scale(1.03)}
+.hero-slide.is-active{animation:hs-wipe 1.35s cubic-bezier(.77,0,.18,1) both}
+.hero-slide.is-active img{animation:hs-kb-a calc(var(--slide-ms,6000ms) + 1800ms) cubic-bezier(.25,.1,.25,1) both}
+.hero-slide:nth-child(even).is-active img{animation-name:hs-kb-b}
+.hero-slide:not(.is-active){transform:scale(1.04)}
+.hero-slide{transition:opacity 1.3s ease,visibility 1.3s,transform 1.6s ease}
+@keyframes hs-wipe{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+@keyframes hs-kb-a{from{transform:scale(1.03) translate(0,0)}to{transform:scale(1.12) translate(-1.6%,-1.1%)}}
+@keyframes hs-kb-b{from{transform:scale(1.12) translate(1.4%,.8%)}to{transform:scale(1.03) translate(0,0)}}
+
+/* --- cinematic light: vignette, warm grade, shimmer sweep, film grain --- */
+.hs-fx{position:absolute;inset:0;z-index:3;pointer-events:none}
+.hs-vignette{background:
+  radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(20,6,12,.42) 100%),
+  linear-gradient(0deg,rgba(20,6,12,.62) 0%,rgba(20,6,12,0) 34%),
+  linear-gradient(180deg,rgba(20,6,12,.28) 0%,rgba(20,6,12,0) 22%)}
+.hs-grade{mix-blend-mode:soft-light;opacity:.36;background:linear-gradient(115deg,rgba(107,15,53,.55) 0%,rgba(169,45,99,.12) 45%,rgba(242,194,0,.38) 100%)}
+.hs-sweep{overflow:hidden}
+.hs-sweep::before{content:"";position:absolute;top:-20%;bottom:-20%;left:-40%;width:28%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.20),transparent);transform:skewX(-18deg);
+  animation:hs-sweep 7.5s ease-in-out 1.2s infinite}
+@keyframes hs-sweep{0%{left:-40%}38%,100%{left:140%}}
+.hs-particles{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
+
+/* --- captions (only when a slide has text) --- */
+.hero-slide .slide-content{z-index:4}
+.hero-slide .slide-box{position:relative;max-width:min(640px,92%)}
+.hero-slide .slide-content::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 80% at 22% 55%,rgba(20,6,12,.55),transparent 70%)}
+.hero-slide.slide-pos-center .slide-content::before{background:radial-gradient(60% 80% at 50% 55%,rgba(20,6,12,.55),transparent 70%)}
+.hero-slide.slide-pos-right .slide-content::before{background:radial-gradient(60% 80% at 78% 55%,rgba(20,6,12,.55),transparent 70%)}
+.hero-slide .slide-box h2{text-shadow:0 4px 30px rgba(0,0,0,.45)}
+.hero-slide .slide-box h2 .w{display:inline-block;opacity:0;transform:translateY(.7em) rotate(2deg);filter:blur(6px)}
+.hero-slide.is-active .slide-box h2 .w{animation:hs-word .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(.55s + var(--i) * .07s)}
+.hero-slide .slide-box p,.hero-slide .slide-box .btn{opacity:0;transform:translateY(18px)}
+.hero-slide.is-active .slide-box p{animation:hs-up .9s cubic-bezier(.2,.8,.2,1) 1.0s both}
+.hero-slide.is-active .slide-box .btn{animation:hs-pop .8s cubic-bezier(.2,.9,.3,1.3) 1.25s both}
+.hero-slide.is-active .slide-box .btn + .btn{animation-delay:1.4s}
+.hero-slide .slide-box .btn{box-shadow:0 10px 30px rgba(242,194,0,.28);transition:transform .25s,box-shadow .25s}
+.hero-slide .slide-box .btn:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 16px 38px rgba(242,194,0,.45)}
+@keyframes hs-word{to{opacity:1;transform:none;filter:none}}
+@keyframes hs-up{to{opacity:1;transform:none}}
+@keyframes hs-pop{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
+
+/* --- counter + thumbnails --- */
+.hs-ui{position:absolute;left:0;right:0;bottom:0;z-index:6;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:0 clamp(16px,4vw,56px) clamp(18px,3vw,34px);pointer-events:none}
+.hs-counter{display:flex;align-items:center;gap:14px;color:#fff;font-family:inherit}
+.hs-num{position:relative;height:1em;overflow:hidden;font-size:clamp(2rem,4.4vw,3.6rem);font-weight:800;line-height:1;letter-spacing:-.02em;min-width:1.7ch;text-shadow:0 4px 24px rgba(0,0,0,.4)}
+.hs-num span{display:block;transition:transform .7s cubic-bezier(.7,0,.2,1)}
+.hs-line{width:clamp(36px,6vw,84px);height:2px;background:rgba(255,255,255,.35);position:relative;overflow:hidden;border-radius:2px}
+.hs-line::after{content:"";position:absolute;inset:0;background:var(--hs-gold);transform:scaleX(0);transform-origin:left}
+.hero-slider.hs-run .hs-line::after{animation:hs-fill var(--slide-ms,6000ms) linear forwards}
+@keyframes hs-fill{to{transform:scaleX(1)}}
+.hs-total{font-size:clamp(.9rem,1.4vw,1.15rem);color:rgba(255,255,255,.8);font-weight:600}
+.hs-thumbs{display:flex;gap:10px;pointer-events:auto}
+.hs-thumb{position:relative;width:clamp(74px,8.5vw,128px);aspect-ratio:16/9;border:0;padding:0;border-radius:10px;overflow:hidden;cursor:pointer;opacity:.62;background-size:cover;background-position:center;
+  box-shadow:0 8px 22px rgba(0,0,0,.35);outline:2px solid rgba(255,255,255,.25);outline-offset:0;transition:opacity .3s,transform .3s,outline-color .3s}
+.hs-thumb:hover{opacity:1;transform:translateY(-4px)}
+.hs-thumb.is-on{opacity:1;outline-color:var(--hs-gold);transform:translateY(-6px)}
+.hs-thumb::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--hs-gold);transform:scaleX(0);transform-origin:left}
+.hero-slider.hs-run .hs-thumb.is-on::after{animation:hs-fill var(--slide-ms,6000ms) linear forwards}
+
+/* --- controls --- */
+.hero-slider .hero-arrow{z-index:7;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:transform .3s,background .3s,box-shadow .3s;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.hero-slider .hero-arrow:hover{transform:scale(1.12);background:var(--hs-gold);box-shadow:0 0 0 8px rgba(242,194,0,.2),0 10px 30px rgba(242,194,0,.4)}
+.hero-slider .hero-dots{z-index:7}
+.hero-slider .hero-progress{z-index:8;height:4px;background:rgba(255,255,255,.14)}
+.hero-slider .hero-progress span{background:linear-gradient(90deg,var(--hs-gold),#ffe27a,var(--hs-rose));box-shadow:0 0 14px rgba(242,194,0,.9)}
+
+@media (max-width:760px){
+  .hs-thumbs{display:none}
+  .hero-slider .hero-arrow{width:40px;height:40px}
+  .hs-ui{padding-bottom:30px}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-slide.is-active,.hero-slide.is-active img,.hs-sweep::before{animation:none!important}
+  .hero-slide:not(.is-active){transform:none}
+  .hero-slide .slide-box h2 .w,.hero-slide .slide-box p,.hero-slide .slide-box .btn{opacity:1!important;transform:none!important;filter:none!important;animation:none!important}
+  .hs-particles{display:none}
+}

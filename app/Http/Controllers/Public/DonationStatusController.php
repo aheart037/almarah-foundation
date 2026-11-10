@@ -53,6 +53,7 @@ final class DonationStatusController extends Controller
     /** Receipt / status lookup by public reference. */
     public function show(Request $request): Response
     {
+        if (!$this->allowStatusLookup($request)) return Response::text('Too many status checks. Please try again later.', 429);
         $reference = (string) $request->routeParam('reference', '');
         $donation = $this->donations->findByReference($reference);
 
@@ -71,6 +72,7 @@ final class DonationStatusController extends Controller
 
     private function resultPage(Request $request, string $expected): Response
     {
+        if (!$this->allowStatusLookup($request)) return Response::text('Too many status checks. Please try again later.', 429);
         $reference = trim((string) $request->input('ref', ''));
         $donation = $reference !== '' ? $this->donations->findByReference($reference) : null;
 
@@ -98,5 +100,14 @@ final class DonationStatusController extends Controller
             'currency'     => (string) Config::get('app.currency', 'PKR'),
             'donorMessage' => null,
         ], 'layouts/public');
+    }
+    /** Slow public reference enumeration without changing donor return URLs. */
+    private function allowStatusLookup(Request $request): bool
+    {
+        $limiter = app(\App\Core\RateLimiter::class);
+        $key = 'donation-status:' . $request->ip();
+        if ($limiter->tooManyAttempts($key, 60)) return false;
+        $limiter->hit($key, 1);
+        return true;
     }
 }

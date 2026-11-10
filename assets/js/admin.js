@@ -182,12 +182,37 @@
   }
 })();
 (function () {
-  var t = document.querySelector('[data-side-toggle]'), side = document.getElementById('adminSide');
-  if (!t || !side) return;
+  var t = document.querySelector('[data-side-toggle]');
+  var side = document.getElementById('adminSide');
+  var backdrop = document.querySelector('[data-side-close]');
+  if (!t || !side || !backdrop) return;
+  function close() {
+    side.classList.remove('is-open');
+    backdrop.hidden = true;
+    t.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('admin-nav-open');
+    t.focus();
+  }
   t.addEventListener('click', function () {
-    var open = side.classList.toggle('is-open');
-    t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (side.classList.contains('is-open')) { close(); return; }
+    side.classList.add('is-open');
+    backdrop.hidden = false;
+    t.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('admin-nav-open');
+    var first = side.querySelector('a');
+    if (first) first.focus();
   });
+  backdrop.addEventListener('click', close);
+  document.addEventListener('keydown', function (event) {
+    if (!side.classList.contains('is-open')) return;
+    if (event.key === 'Escape') { close(); return; }
+    if (event.key !== 'Tab') return;
+    var items = Array.prototype.slice.call(side.querySelectorAll('a, summary')).filter(function (el) { return el.getClientRects().length > 0; });
+    if (!items.length) return;
+    if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items[items.length - 1].focus(); }
+    else if (!event.shiftKey && document.activeElement === items[items.length - 1]) { event.preventDefault(); items[0].focus(); }
+  });
+  window.matchMedia('(min-width: 1025px)').addEventListener('change', function (event) { if (event.matches && side.classList.contains('is-open')) close(); });
 })();
 
 /* Finance desk: show only the date inputs relevant to the chosen period. */
@@ -209,5 +234,25 @@
   btn.addEventListener("click", function () {
     btn.classList.add("is-busy");
     window.setTimeout(function () { btn.classList.remove("is-busy"); }, 4000);
+  });
+})();
+
+/* Local search for the existing recent-transaction table; never changes server filters. */
+(function () {
+  document.querySelectorAll('[data-table-search]').forEach(function (input) {
+    var id = input.getAttribute('data-table-search');
+    var table = document.getElementById(id);
+    var empty = document.querySelector('[data-search-empty="' + id + '"]');
+    if (!table) return;
+    input.addEventListener('input', function () {
+      var query = input.value.trim().toLocaleLowerCase();
+      var shown = 0;
+      table.querySelectorAll('tbody tr').forEach(function (row) {
+        var match = row.textContent.toLocaleLowerCase().includes(query);
+        row.hidden = !match;
+        if (match) shown++;
+      });
+      if (empty) empty.hidden = shown !== 0;
+    });
   });
 })();

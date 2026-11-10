@@ -1,0 +1,20 @@
+[04-Nov-2026 15:13:47 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[04-Nov-2026 15:13:57 Asia/Karachi] PHP Warning:  require_once(/home/sophiyaw/softex.pk/almarah/app/Services/../Support/Pdf/fpdf.php): Failed to open stream: No such file or directory in /home/sophiyaw/softex.pk/almarah/app/Services/ReportPdfService.php on line 7
+[04-Nov-2026 15:14:45 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[04-Nov-2026 22:31:31 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[04-Nov-2026 22:32:17 Asia/Karachi] PHP Warning:  require_once(/home/sophiyaw/softex.pk/almarah/app/Services/../Support/Pdf/fpdf.php): Failed to open stream: No such file or directory in /home/sophiyaw/softex.pk/almarah/app/Services/ReportPdfService.php on line 7
+[05-Nov-2026 02:22:17 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[05-Nov-2026 02:22:29 Asia/Karachi] PHP Warning:  require_once(/home/sophiyaw/softex.pk/almarah/app/Services/../Support/Pdf/fpdf.php): Failed to open stream: No such file or directory in /home/sophiyaw/softex.pk/almarah/app/Services/ReportPdfService.php on line 7
+[05-Nov-2026 14:29:05 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[05-Nov-2026 14:30:02 Asia/Karachi] PHP Warning:  require_once(/home/sophiyaw/softex.pk/almarah/app/Services/../Support/Pdf/fpdf.php): Failed to open stream: No such file or directory in /home/sophiyaw/softex.pk/almarah/app/Services/ReportPdfService.php on line 7
+[05-Nov-2026 16:16:23 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[05-Nov-2026 19:57:34 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[05-Nov-2026 20:03:09 Asia/Karachi] Dashboard block failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'verification_status' in 'WHERE'
+[10-Nov-2026 09:52:59 Asia/Karachi] PHP Warning:  Undefined variable $staffList in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 09:52:59 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 09:52:59 Asia/Karachi] PHP Warning:  Undefined variable $history in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 09:52:59 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  Undefined variable $staffList in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  Undefined variable $history in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104

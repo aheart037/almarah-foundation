@@ -55,7 +55,12 @@ $firstColumn = array_key_first($def['list']);
     <h1><?= e($def['label']) ?></h1>
     <?php if (!empty($def['help'])): ?><p class="sub"><?= e($def['help']) ?></p><?php endif; ?>
   </div>
-  <a class="btn btn-brand" href="<?= e($base . '/create') ?>">New <?= e($def['singular']) ?></a>
+  <div class="sr-actions">
+    <?php foreach ($def['actions'] ?? [] as $action): ?>
+      <a class="btn btn-light" href="<?= e(base_url((string) $action['href'])) ?>"><?= e((string) $action['label']) ?></a>
+    <?php endforeach; ?>
+    <a class="btn btn-brand" href="<?= e($base . '/create') ?>">New <?= e($def['singular']) ?></a>
+  </div>
 </div>
 
 <section class="panel">
@@ -63,7 +68,7 @@ $firstColumn = array_key_first($def['list']);
     <input class="input" type="search" name="q" value="<?= e($q) ?>" placeholder="Search…" aria-label="Search">
     <?php foreach ($def['filters'] ?? [] as $column => $options): ?>
       <select class="select-field" name="<?= e($column) ?>" aria-label="<?= e(ucfirst($column)) ?>">
-        <option value="">All <?= e($column) ?>s</option>
+        <option value=""><?= e((string) ($def['filter_all'][$column] ?? 'All ' . $column . 's')) ?></option>
         <?php foreach ($options as $value => $label): ?>
           <option value="<?= e((string) $value) ?>" <?= ($filters[$column] ?? '') === (string) $value ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>

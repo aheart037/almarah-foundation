@@ -70,3 +70,57 @@
   .dash-side { display: none; }
   .dash-side.is-open { display: block; }
 }
+
+/* Admin-only polish: sidebar stays vertical at laptop widths, then becomes a
+   keyboard-dismissible drawer on tablets and phones. Public styles unchanged. */
+.admin-body .admin-topbar .header-inner { flex-wrap: wrap; }
+.admin-body .admin-topbar .inline-form button { background: #fff; color: var(--brand-darker); border: 1px solid var(--line); }
+.admin-body .admin-topbar .inline-form button:hover { background: var(--brand-tint); }
+.admin-body .dash-shell { grid-template-columns: minmax(220px, 256px) minmax(0, 1fr); gap: clamp(16px, 2vw, 28px); }
+.admin-body .dash-nav { display: block; overflow: visible; }
+.admin-body .dash-nav a, .admin-body .dash-nav summary { min-height: 42px; }
+.admin-body .dash-nav a:focus-visible, .admin-body .dash-nav summary:focus-visible, .admin-body button:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.admin-body .dash-nav .nav-group { border-top: 1px solid var(--line-soft); margin: 12px 6px 4px; padding: 14px 12px 3px; color: var(--brand-darker); font-weight: 800; }
+.admin-body .dash-nav .nav-group:first-child { border: 0; margin-top: 0; }
+.admin-body .dash-nav .nav-details > summary.active { background: var(--brand-tint); color: var(--brand-darker); }
+.admin-body .dash-nav .nav-sub.active { background: var(--brand); color: #fff; }
+.admin-body .stat-card { min-width: 0; }
+.admin-body .stat-card .v { overflow-wrap: anywhere; }
+.admin-body .panel { min-width: 0; }
+.admin-body .table-wrap { -webkit-overflow-scrolling: touch; }
+.admin-body .data-table tr[hidden], .admin-side-backdrop[hidden], .admin-search-empty[hidden] { display: none !important; }
+.admin-search-label { display: block; font-weight: 700; font-size: 13px; margin: 0 0 6px; }
+.admin-search { width: min(100%, 420px); margin-bottom: 16px; }
+.admin-search-empty { padding: 14px; background: var(--brand-tint); border-radius: 8px; color: var(--ink-2); }
+@media (max-width: 1024px) {
+  .admin-body .admin-side-toggle { display: inline-flex; }
+  .admin-body .dash-shell { display: block; }
+  .admin-body .dash-side { display: block; position: fixed; z-index: 102; top: 0; bottom: 0; left: 0; width: min(318px, 88vw); max-height: 100dvh; overflow-y: auto; border-radius: 0 16px 16px 0; transform: translateX(-105%); visibility: hidden; transition: transform .2s ease, visibility .2s; }
+  .admin-body .dash-side.is-open { transform: translateX(0); visibility: visible; }
+  .admin-body .admin-side-backdrop:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 101; width: 100%; height: 100%; border: 0; background: rgba(24, 14, 20, .55); cursor: pointer; }
+  .admin-body.admin-nav-open { overflow: hidden; }
+}
+@media (max-width: 640px) {
+  .admin-body .admin-topbar .header-inner { gap: 8px !important; padding-block: 8px; }
+  .admin-body .admin-topbar .brand-lockup img { max-width: 98px; height: auto !important; }
+  .admin-body .admin-topbar .btn-sm { padding: 7px 9px; font-size: 12px; }
+  .admin-body .dash-shell { padding-top: 18px; }
+  .admin-body .stat-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 10px; }
+  .admin-body .stat-card { padding: 14px; }
+  .admin-body .stat-card .v { font-size: clamp(20px, 6vw, 27px); }
+}
+@media (prefers-reduced-motion: reduce) { .admin-body .dash-side { transition: none; } }
+.admin-task-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.admin-task-list a { display: grid; gap: 3px; min-width: min(100%, 190px); padding: 12px 16px; background: var(--brand-tint); color: var(--ink-2); border-radius: 10px; text-decoration: none; border: 1px solid var(--line-soft); }
+.admin-task-list a:hover { border-color: var(--brand); }
+.admin-task-list span { color: var(--brand-darker); font-size: 12px; }
+.admin-body .dash-head .sr-actions { flex-wrap: wrap; }
+/* Existing filter controls include select-field wrappers around selects; bound
+   their intrinsic width on narrow screens instead of shrinking the page. */
+.admin-body .toolbar > *, .admin-body .rs-toolbar > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.admin-body .toolbar .select-field, .admin-body .rs-toolbar .select-field { max-width: 100%; box-sizing: border-box; }
+.admin-body .toolbar > .select-field select { width: 100%; }
+.admin-body .form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-body .form-row > *, .admin-body .field { min-width: 0; }
+.admin-body .form-help, .admin-body .field code { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .admin-body .form-row { grid-template-columns: minmax(0, 1fr); } }
