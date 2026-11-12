@@ -260,6 +260,8 @@ final class DonationCertificateService
             'valid_from' => $fmt($this->setting('approval_valid_from')), 'valid_until' => $fmt($this->setting('approval_valid_until')),
             'signatory_name' => $this->setting('signatory_name') ?: 'Sophia Warraich',
             'signatory_title' => in_array($this->setting('signatory_title'), ['', 'Authorized Signatory'], true) ? 'Chairperson' : $this->setting('signatory_title'),
+            // Printed under the certificate only when a referrer was named; otherwise empty and nothing is drawn.
+            'referrer' => (((int) ($d['referral_enabled'] ?? 0)) === 1) ? trim((string) ($d['referrer_name'] ?? '')) : '',
             'logo' => is_file($logo) ? $logo : null,
             'signature' => is_file($signature) ? $signature : null,
             // Static pages: FBR 2(36) approval (2 pages), Shariah approval, Punjab Charity Commission registration.

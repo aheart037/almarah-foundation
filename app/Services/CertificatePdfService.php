@@ -23,7 +23,7 @@ final class CertificatePdfService
     private const MUTED = [110, 100, 105];
 
     /**
-     * @param array{donor_name:string,amount:string,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,ntn:string,approval_text:string,valid_from:string,valid_until:string,signatory_name:string,signatory_title:string,logo:?string,signature?:?string,appendix?:?string,compress?:bool} $c
+     * @param array{donor_name:string,amount:string,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,ntn:string,approval_text:string,valid_from:string,valid_until:string,signatory_name:string,signatory_title:string,logo:?string,signature?:?string,referrer?:string,appendix?:?string,compress?:bool} $c
      */
     public function render(array $c): string
     {
@@ -149,6 +149,15 @@ final class CertificatePdfService
         $pdf->SetXY(15, 190);
         $pdf->SetFont('Helvetica', '', 7.5);
         $pdf->Cell(267, 4, $pdf->t('Computer-generated certificate. Quote the certificate number above for any verification request.'), 0, 0, 'C');
+
+        // Optional referrer: drawn only when a name exists, so certificates without one are unchanged.
+        $referrer = trim((string) ($c['referrer'] ?? ''));
+        if ($referrer !== '') {
+            $pdf->SetXY(15, 194);
+            $pdf->SetFont('Helvetica', 'I', 8);
+            $pdf->SetTextColor(...self::MUTED);
+            $pdf->Cell(267, 4, $pdf->t('Referred by: ' . $referrer), 0, 0, 'C');
+        }
 
         $certificate = $pdf->Output('S');
 
