@@ -458,10 +458,10 @@ final class SettingsController extends Controller
         $sent = $this->mailer->sendRaw(
             $recipient,
             'Almarah Foundation — SMTP test',
-            '<p>This is a test message from the Almarah Foundation fundraising platform.</p>'
+            '<p>This is a test message from the Almarah Foundation donation platform.</p>'
             . '<p>If you received it, outbound email is working. '
             . 'Sent ' . gmdate('j F Y H:i') . ' UTC by ' . e((string) $this->auth->user()['email']) . '.</p>',
-            'This is a test message from the Almarah Foundation fundraising platform. If you received it, outbound email is working.'
+            'This is a test message from the Almarah Foundation donation platform. If you received it, outbound email is working.'
         );
 
         if ($sent) {

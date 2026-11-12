@@ -5,7 +5,6 @@
  * @var array $user
  * @var array $roles
  * @var array $availableRoles
- * @var array $fundraisers
  * @var array $donations
  * @var array $auditTrail
  * @var bool $isSelf
@@ -89,7 +88,7 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
           <div class="field" style="margin:0">
             <label for="reason">Reason<span class="req">*</span></label>
             <input class="input" type="text" id="reason" name="reason" required minlength="5" maxlength="500"
-                   placeholder="Repeated fraudulent fundraising requests">
+                   placeholder="Repeated fraudulent donation submissions">
             <span class="form-help">Included in the email we send them.</span>
           </div>
           <button class="btn btn-outline-brand" type="submit" style="border-color:#a3231b;color:#a3231b">Suspend account</button>
@@ -115,13 +114,13 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
                 <?php
                   echo match ($role) {
                       'super_admin' => 'Full access, including credentials and roles.',
-                      'admin'       => 'Moderate fundraisers, donations and users.',
+                      'admin'       => 'Manage donations, content and users.',
                       'initial_reviewer', 'initial_review' => 'First-pass donation verification; cannot approve own submission.',
                       'verification_officer' => 'Verify donation evidence at the second review stage.',
                       'finance_manager' => 'Finance review, reconciliation and reports.',
                       'content_manager' => 'Manage website content.',
                       'volunteer_manager' => 'Manage volunteer applications.',
-                      'fundraiser'  => 'Create and manage their own fundraisers.',
+                      'fundraiser'  => 'Legacy role from the old fundraising platform.',
                       default       => 'Donor account and receipts.',
                   };
                 ?>
@@ -148,28 +147,6 @@ $canManageRoles = app(\App\Services\AuthService::class)->isSuperAdmin();
 <?php endif; ?>
 <?php if ($assignableGrants !== [] && (string)$user['status']==='active'): ?>
 <section class="panel"><h2>Assign multiple grants</h2><p class="panel-sub">Select one or several open grants for this user. Duplicate assignments are rejected.</p><form method="post" action="<?= e(base_url('admin/users/'.$id.'/grants')) ?>"><?= csrf_field() ?><div class="field"><label for="grant_ids">Grants</label><select class="input" id="grant_ids" name="grant_ids[]" multiple size="8" required><?php foreach ($assignableGrants as $grant): if ($grant['status']==='closed') continue; ?><option value="<?= (int)$grant['id'] ?>"><?= e($grant['reference'].' · '.$grant['title']) ?></option><?php endforeach; ?></select></div><div class="field"><label for="grant_responsibilities">Responsibilities (optional)</label><textarea class="input" id="grant_responsibilities" name="responsibilities" maxlength="1000" rows="2"></textarea></div><div class="field"><label for="grant_notes">Notes (optional)</label><textarea class="input" id="grant_notes" name="notes" maxlength="10000" rows="2"></textarea></div><button class="btn btn-brand" type="submit">Assign grants</button></form></section>
-<?php endif; ?>
-
-<?php if ($fundraisers !== []): ?>
-  <section class="panel">
-    <h2>Fundraisers owned</h2>
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Title</th><th>Status</th><th class="num">Raised</th><th class="num">Goal</th><th></th></tr></thead>
-        <tbody>
-          <?php foreach ($fundraisers as $row): ?>
-            <tr>
-              <td class="wrap"><?= e((string) $row['title']) ?></td>
-              <td><span class="<?= e(status_badge_class((string) $row['status'])) ?>"><?= e(str_replace('_', ' ', (string) $row['status'])) ?></span></td>
-              <td class="num"><?= e(money_short((int) $row['raised_minor'])) ?></td>
-              <td class="num"><?= e(money_short((int) $row['goal_minor'])) ?></td>
-              <td><?php if ($can('reports.view')): ?><a class="btn btn-light btn-sm" href="<?= e(base_url('admin/reports/fundraisers?q=' . rawurlencode((string) $row['title']))) ?>">Find in report</a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-  </section>
 <?php endif; ?>
 
 <?php if ($donations !== []): ?>

@@ -29,9 +29,6 @@ $canRefund = $status === 'completed' && $transactions !== [];
         <form method="post" action="<?= e(base_url('admin/finance/donations/' . (int) $donation['id'] . '/receipt')) ?>" style="display:inline"><?= csrf_field() ?><button class="btn btn-light" type="submit">Resend receipt</button></form>
       <?php endif; ?>
     <?php endif; ?>
-    <?php if (!empty($donation['fundraiser_slug'])): ?>
-      <a class="btn btn-outline-brand" href="<?= e(base_url('fundraisers/' . (string) $donation['fundraiser_slug'])) ?>" target="_blank" rel="noopener">Public page</a>
-    <?php endif; ?>
   </div>
 </div>
 
@@ -57,9 +54,6 @@ $canRefund = $status === 'completed' && $transactions !== [];
       <dt>Method</dt><dd><?= e($donation['gateway_code'] ? ucfirst((string) $donation['gateway_code']) : ucwords(str_replace('_', ' ', (string) ($donation['source'] ?? 'offline')))) ?></dd>
       <?php if (!empty($donation['bank_reference'])): ?>
         <dt>Bank reference</dt><dd><?= e((string) $donation['bank_reference']) ?></dd>
-      <?php endif; ?>
-      <?php if (!empty($donation['fundraiser_title'])): ?>
-        <dt>Fundraiser</dt><dd><?= e((string) $donation['fundraiser_title']) ?></dd>
       <?php endif; ?>
       <?php if (!empty($donation['campaign_title'])): ?>
         <dt>Campaign</dt><dd><?= e((string) $donation['campaign_title']) ?></dd>

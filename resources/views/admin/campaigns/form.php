@@ -15,7 +15,7 @@ $featured = old('featured', $isEdit ? (string) (int) ($campaign['featured'] ?? 0
 <div class="dash-head">
   <div>
     <h1><?= $isEdit ? 'Edit campaign' : 'New campaign' ?></h1>
-    <p class="sub"><?= $isEdit ? 'Changes appear on the public site as soon as you save.' : 'Appeals people can give to or start fundraisers for.' ?></p>
+    <p class="sub"><?= $isEdit ? 'Changes appear on the public site as soon as you save.' : 'Appeals people can give to.' ?></p>
   </div>
   <a class="btn btn-light" href="<?= e(base_url('admin/campaigns')) ?>">Back to campaigns</a>
 </div>

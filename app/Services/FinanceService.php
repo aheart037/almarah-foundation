@@ -262,6 +262,43 @@ final class FinanceService
     }
 
     /** @return array<int,array<string,mixed>> */
+    /**
+     * Every donation inside a reconciliation run's period (same range and method filter the run's
+     * counts use), one row each, oldest first, with the run's discrepancy flags attached.
+     *
+     * @return array{rows:array<int,array<string,mixed>>,total:int,lastPage:int,page:int}
+     */
+    public function runDonations(array $run, int $page = 1, int $perPage = 100): array
+    {
+        $gw = !empty($run['gateway_id']) ? ' AND d.gateway_id = :gw' : '';
+        $params = ['from' => (string) $run['period_start'], 'to' => (string) $run['period_end']];
+        if ($gw !== '') {
+            $params['gw'] = (int) $run['gateway_id'];
+        }
+        $where = "d.created_at BETWEEN :from AND :to{$gw}";
+        $total = $this->db->int("SELECT COUNT(*) FROM donations d WHERE {$where}", $params);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $lastPage);
+        $offset = ($page - 1) * $perPage;
+        $rows = $this->db->select(
+            "SELECT d.id, d.public_reference, d.amount_minor, d.currency, d.status, d.verification_status, d.source,
+                    d.payment_method, d.bank_reference, d.created_at, d.transaction_at, d.gateway_id,
+                    dn.name AS donor_name, g.name AS gateway_name,
+                    (SELECT pt.provider_transaction_id FROM payment_transactions pt WHERE pt.donation_id = d.id ORDER BY pt.id DESC LIMIT 1) AS txn_ref,
+                    (SELECT COUNT(*) FROM reconciliation_items i WHERE i.run_id = :run_a AND i.donation_id = d.id) AS flag_count,
+                    (SELECT COUNT(*) FROM reconciliation_items i WHERE i.run_id = :run_b AND i.donation_id = d.id AND i.resolved_at IS NULL) AS open_flags
+             FROM donations d
+             LEFT JOIN donors dn ON dn.id = d.donor_id
+             LEFT JOIN gateways g ON g.id = d.gateway_id
+             WHERE {$where}
+             ORDER BY d.created_at ASC, d.id ASC
+             LIMIT {$perPage} OFFSET {$offset}",
+            $params + ['run_a' => (int) $run['id'], 'run_b' => (int) $run['id']]
+        );
+
+        return ['rows' => $rows, 'total' => $total, 'lastPage' => $lastPage, 'page' => $page];
+    }
+
     public function items(int $runId): array
     {
         return $this->db->select(

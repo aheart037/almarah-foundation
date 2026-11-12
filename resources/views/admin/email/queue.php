@@ -76,7 +76,7 @@
   <?php if ($jobs === []): ?>
     <div class="empty-state">
       <h3>Nothing in the queue</h3>
-      <p>When a donation completes or a fundraiser changes state, the email appears here.</p>
+      <p>When a donation is received, verified or certified, the email appears here.</p>
     </div>
   <?php else: ?>
     <div class="table-wrap">

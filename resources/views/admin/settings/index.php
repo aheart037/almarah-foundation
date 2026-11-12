@@ -7,7 +7,6 @@
  * @var array $mail
  * @var bool $mailConfigured
  * @var array $site
- * @var array $fundraiserCapabilities
  * @var array $queueStats
  */
 
@@ -29,7 +28,6 @@ $faviconUrl = site_brand_asset('site.favicon');
   <?php endforeach; ?>
   <a href="#smtp">Email / SMTP</a>
   <a href="#branding">Branding</a>
-  <a href="#fundraiser-capabilities">Fundraiser controls</a>
   <a href="#site">Site &amp; donations</a>
   <a href="#queue">Queue</a>
 </nav>
@@ -302,7 +300,7 @@ $faviconUrl = site_brand_asset('site.favicon');
     <div class="form-row">
       <div class="field">
         <label for="from_address">From address</label>
-        <input class="input" type="email" id="from_address" name="from_address" value="<?= e((string) $mail['from_address']) ?>" placeholder="fundraising@almarah.org">
+        <input class="input" type="email" id="from_address" name="from_address" value="<?= e((string) $mail['from_address']) ?>" placeholder="donations@almarah.org">
       </div>
       <div class="field">
         <label for="from_name">From name</label>
@@ -450,43 +448,6 @@ $faviconUrl = site_brand_asset('site.favicon');
   </form>
 </section>
 
-<section class="panel" id="fundraiser-capabilities">
-  <div class="panel-head">
-    <div>
-      <h2>Fundraiser capabilities</h2>
-      <p class="panel-sub">Control which tools are available to fundraiser accounts.</p>
-    </div>
-  </div>
-
-  <div class="alert alert-info">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></svg>
-    <p>Fundraiser controls are not connected on this site. The separate fundraising deployment and its settings API must be confirmed before these options can be changed here.</p>
-  </div>
-
-  <fieldset disabled aria-label="Fundraiser controls unavailable" style="border:0;padding:0;margin:0;min-width:0;max-width:100%;box-sizing:border-box">
-    <div class="capability-options">
-      <label class="checkbox-row capability-option">
-        <input type="checkbox" name="manage_pages" value="1" <?= !empty($fundraiserCapabilities['manage_pages']) ? 'checked' : '' ?>>
-        <span><b>Create and manage fundraiser pages</b><em>Allow fundraiser accounts to create drafts, edit details, submit pages for review, and pause their fundraisers.</em></span>
-      </label>
-
-      <label class="checkbox-row capability-option">
-        <input type="checkbox" name="manage_teams" value="1" <?= !empty($fundraiserCapabilities['manage_teams']) ? 'checked' : '' ?>>
-        <span><b>Manage fundraising teams</b><em>Allow fundraiser accounts to create teams, invite or remove members, and accept team invitations.</em></span>
-      </label>
-
-      <label class="checkbox-row capability-option">
-        <input type="checkbox" name="publish_updates" value="1" <?= !empty($fundraiserCapabilities['publish_updates']) ? 'checked' : '' ?>>
-        <span><b>Publish fundraiser updates</b><em>Allow fundraiser accounts to post and remove updates on their fundraiser pages.</em></span>
-      </label>
-    </div>
-
-    <div class="form-actions">
-      <button class="btn btn-brand" type="button" disabled>Fundraiser controls unavailable</button>
-    </div>
-  </fieldset>
-</section>
-
 <section class="panel" id="site">
   <h2>Site &amp; donations</h2>
   <p class="panel-sub">Public contact details, moderation behaviour and donation limits.</p>
@@ -534,17 +495,6 @@ $faviconUrl = site_brand_asset('site.favicon');
     </div>
 
     <div class="form-row">
-      <div class="field">
-        <label>Moderation</label>
-        <label class="checkbox-row">
-          <input type="checkbox" name="require_verification" value="1" <?= !empty($site['require_verification']) ? 'checked' : '' ?>>
-          <span>Require a verified email before a fundraiser can be submitted</span>
-        </label>
-        <label class="checkbox-row mt-1">
-          <input type="checkbox" name="auto_publish_updates" value="1" <?= !empty($site['auto_publish_updates']) ? 'checked' : '' ?>>
-          <span>Publish fundraiser updates immediately</span>
-        </label>
-      </div>
       <div class="field">
         <label>Environment</label>
         <p class="text-muted" style="font-size:14px;margin:0">

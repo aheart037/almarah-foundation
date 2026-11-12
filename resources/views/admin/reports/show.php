@@ -67,9 +67,6 @@ $cellHtml = static function (array $col, array $row) use ($cur, $can, $currentUs
         $id = $row['donation_id'] ?? $row['id'] ?? null;
         $href = match ($link) {
             'donation'   => $id !== null && $can('donations.view') ? 'admin/donations/' . $id : '',
-            // There is no local /admin/fundraisers/{id} page. Keep the value
-            // readable rather than sending staff to an unrelated 404.
-            'fundraiser' => '',
             'campaign'   => isset($row['id']) && $can('content.manage')
                 && (in_array('admin', $currentUserRoles ?? [], true) || in_array('super_admin', $currentUserRoles ?? [], true))
                     ? 'admin/campaigns/' . $row['id'] . '/edit' : '',

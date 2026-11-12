@@ -94,7 +94,6 @@ final class UserController extends Controller
             'user'           => $user,
             'roles'          => $this->users->rolesFor($userId),
             'availableRoles' => array_column($this->rbac->roles(), 'name'),
-            'fundraisers'    => app(\App\Repositories\FundraiserRepository::class)->forOwner($userId),
             'donations'      => $donations,
             'auditTrail'     => $this->audit->forUser($userId, 25),
             'isSelf'         => $userId === (int) $this->auth->id(),

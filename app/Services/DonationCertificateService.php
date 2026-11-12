@@ -36,8 +36,8 @@ final class DonationCertificateService
         if ((string) $d['status'] !== 'completed') {
             return 'The donation is not confirmed.';
         }
-        if ($d['gateway_id'] === null && (string) ($d['verification_status'] ?? '') !== 'verified') {
-            return 'Offline donations need finance verification first.';
+        if ((string) ($d['verification_status'] ?? '') !== 'verified') {
+            return 'The donation needs finance verification first.';
         }
         return null;
     }
@@ -208,7 +208,7 @@ final class DonationCertificateService
         if ($since !== null) {
             $ids = $this->db->select(
                 "SELECT d.id FROM donations d LEFT JOIN donation_certificates c ON c.donation_id = d.id
-                 WHERE c.id IS NULL AND d.status = 'completed' AND (d.gateway_id IS NOT NULL OR d.verification_status = 'verified') AND d.created_at >= :s ORDER BY d.id LIMIT " . max(1, $limit),
+                 WHERE c.id IS NULL AND d.status = 'completed' AND d.verification_status = 'verified' AND d.created_at >= :s ORDER BY d.id LIMIT " . max(1, $limit),
                 ['s' => $since . ' 00:00:00']
             );
             foreach ($ids as $r) { $this->issue((int) $r['id']); $stats['issued']++; }
@@ -248,7 +248,10 @@ final class DonationCertificateService
         $logo = dirname(__DIR__, 2) . '/assets/images/logo/cropped-logo-1-scaled-1.png';
         $signature = dirname(__DIR__, 2) . '/assets/images/signature/chairperson-signature.png';
         return [
-            'donor_name' => trim((string) ($d['donor_name'] ?? '')) ?: 'Donor',
+            // Donation made on someone else's behalf: the certificate carries the recipient's name.
+            'donor_name' => (((int) ($d['acknowledgment_self'] ?? 1)) === 0 && trim((string) ($d['recipient_name'] ?? '')) !== '')
+                ? trim((string) $d['recipient_name'])
+                : (trim((string) ($d['donor_name'] ?? '')) ?: 'Donor'),
             'amount' => (string) $d['currency'] . ' ' . number_format(((int) $d['amount_minor']) / 100, 2),
             'donation_date' => $fmt($date), 'reference' => (string) $d['public_reference'],
             'certificate_number' => $number, 'issue_date' => $fmt(substr($issuedAt, 0, 10)),

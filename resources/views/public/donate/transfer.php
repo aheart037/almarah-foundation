@@ -119,7 +119,7 @@ $banksFor = array_values(array_filter($banks, static fn ($b): bool => strtoupper
         <h3><span class="tf-step">3</span>Upload your slip *</h3>
         <p class="tf-sub">A clear photo or screenshot of the deposit slip or transfer confirmation. Large photos are shrunk automatically.</p>
         <label class="tf-drop" id="tfDrop" for="payment_proof">
-          <strong>Tap to choose a photo or screenshot</strong>
+          <strong>Tap to choose a photo, or drag &amp; drop it here</strong>
           <span>JPG or PNG</span>
           <input type="file" id="payment_proof" name="payment_proof" accept="image/*" required>
         </label>
@@ -199,6 +199,21 @@ $banksFor = array_values(array_filter($banks, static fn ($b): bool => strtoupper
       img.src = url;
     });
   }
+  // Drag & drop onto the upload box (reuses the same change handler below).
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('drag'); });
+  });
+  ['dragleave', 'dragend'].forEach(function (ev) {
+    drop.addEventListener(ev, function () { drop.classList.remove('drag'); });
+  });
+  drop.addEventListener('drop', function (e) {
+    e.preventDefault(); drop.classList.remove('drag');
+    var files = e.dataTransfer && e.dataTransfer.files; if (!files || !files.length) return;
+    var f = files[0];
+    if (!/^image\//.test(f.type)) { say('Please drop an image file (JPG or PNG).', 'err'); return; }
+    if (window.DataTransfer) { var dt = new DataTransfer(); dt.items.add(f); input.files = dt.files; input.dispatchEvent(new Event('change', { bubbles: true })); }
+    else { say('Your browser cannot accept dropped files. Please tap the box to choose the photo.', 'err'); }
+  });
   input.addEventListener('change', function () {
     var f = input.files[0]; if (!f) return;
     ready = false; say('Preparing your photo...');

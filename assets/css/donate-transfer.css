@@ -19,6 +19,7 @@
 .tf-hint{font-size:.8rem;color:#7a6e73;margin-top:4px}
 .tf-drop{display:block;border:2px dashed #cdb3c0;border-radius:14px;padding:22px 14px;text-align:center;background:var(--brand-tint,#fdf5f8);cursor:pointer}
 .tf-drop:hover,.tf-drop.has-file{border-color:var(--brand,#a92d63)}
+.tf-drop.drag{border-color:var(--brand,#a92d63);border-style:solid;background:#fbe9f1;box-shadow:0 0 0 4px rgba(169,45,99,.14)}
 .tf-drop strong{display:block;color:var(--brand-darker,#6b0f35);margin-bottom:2px}
 .tf-drop input[type=file]{position:absolute;opacity:0;width:1px;height:1px}
 .tf-preview{display:none;align-items:center;gap:12px;margin-top:12px;text-align:left}

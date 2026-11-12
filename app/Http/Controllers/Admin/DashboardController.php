@@ -88,8 +88,7 @@ final class DashboardController extends Controller
                     ) ?? ['cnt' => 0, 'minor' => 0],
                     'awaitingReview' => $this->db->int(
                         "SELECT COUNT(*) FROM donations WHERE verification_status IN ('submitted', 'initial_review', 'verification_officer', 'finance_manager')
-                          AND status NOT IN ('failed','cancelled','refunded','abandoned')
-                          AND (gateway_id IS NULL OR status = 'completed')"
+                          AND status NOT IN ('failed','cancelled','refunded')"
                     ),
                     'donors'        => $this->db->int('SELECT COUNT(*) FROM donors'),
                     'pending'       => $this->db->int("SELECT COUNT(*) FROM donations WHERE status IN ('pending','processing')"),
@@ -111,7 +110,7 @@ final class DashboardController extends Controller
         if ($this->auth->isAdmin() || $this->auth->can('reports.view')) {
             $data['campaignStats'] = $this->guard(fn (): array => [
                 'active' => $this->db->int("SELECT COUNT(*) FROM campaigns WHERE status = 'active' AND deleted_at IS NULL AND (start_at IS NULL OR start_at <= UTC_DATE()) AND (end_at IS NULL OR end_at >= UTC_DATE())"),
-                'fundraisers' => $this->db->int("SELECT COUNT(*) FROM fundraisers WHERE status = 'published' AND approval_status = 'approved' AND deleted_at IS NULL AND (start_at IS NULL OR start_at <= UTC_DATE()) AND (end_at IS NULL OR end_at >= UTC_DATE())"),
+                'purposes' => $this->db->int("SELECT COUNT(*) FROM donation_purposes WHERE status = 'active'"),
             ]);
         }
 

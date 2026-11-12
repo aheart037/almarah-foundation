@@ -55,6 +55,7 @@
       </thead>
       <tbody>
         <?php foreach ($templates as $template): ?>
+          <?php if (str_starts_with((string) $template['event_key'], 'fundraiser.')) { continue; } // old fundraising emails are hidden ?>
           <tr>
             <td class="mono"><?= e((string) $template['event_key']) ?></td>
             <td><?= e((string) $template['name']) ?></td>
@@ -77,7 +78,7 @@
     Tokens available in every template: <span class="mono">{{appName}}</span>, <span class="mono">{{year}}</span>,
     plus the values passed by the event such as <span class="mono">{{heading}}</span>, <span class="mono">{{body}}</span>,
     <span class="mono">{{cta_label}}</span>, <span class="mono">{{cta_url}}</span>, <span class="mono">{{reference}}</span>,
-    <span class="mono">{{amount}}</span>, <span class="mono">{{donor_name}}</span>, <span class="mono">{{fundraiser_title}}</span>.
+    <span class="mono">{{amount}}</span> and <span class="mono">{{donor_name}}</span>.
     Unknown tokens are replaced with an empty string.
   </p>
 </section>

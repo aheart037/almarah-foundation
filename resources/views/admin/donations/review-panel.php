@@ -22,6 +22,37 @@ $label = $isGateway && $vs === 'submitted' && (string) $donation['status'] !== '
       <li><a href="<?= e(base_url('admin/donations/' . (int) $donation['id'] . '/proof')) ?>" target="_blank" rel="noopener">View bank / deposit slip</a></li>
     <?php endif; ?>
   </ul>
+  <?php
+  // Acknowledgment recipient + referrer entered by the donor / staff (shown here so finance sees it while verifying).
+  $__v = static fn (string $k): string => trim((string) ($donation[$k] ?? ''));
+  $__other = isset($donation['acknowledgment_self']) && (int) $donation['acknowledgment_self'] === 0 && $__v('recipient_name') !== '';
+  $__hasRef = !empty($donation['referral_enabled']) && $__v('referrer_name') !== '';
+  $__certName = $__other ? $__v('recipient_name') : ($__v('donor_name') !== '' ? $__v('donor_name') : '—');
+  ?>
+  <div style="margin:14px 0;padding:14px 16px;border:1px solid #eadde3;border-radius:12px;background:#fdf8fa">
+    <p style="margin:0 0 8px"><strong>Certificate &amp; acknowledgment name:</strong> <?= e($__certName) ?>
+      <span class="muted" style="font-size:12px">(<?= $__other ? 'someone else, entered by the donor' : 'the donor' ?>)</span></p>
+    <?php if ($__other): ?>
+      <dl class="kv" style="margin:0 0 10px">
+        <dt>Recipient</dt><dd><?= e($__v('recipient_name')) ?></dd>
+        <?php if ($__v('recipient_email') !== ''): ?><dt>Recipient email</dt><dd><?= e($__v('recipient_email')) ?></dd><?php endif; ?>
+        <?php if ($__v('recipient_phone') !== ''): ?><dt>Recipient phone</dt><dd><?= e($__v('recipient_phone')) ?></dd><?php endif; ?>
+        <?php if ($__v('recipient_address') !== ''): ?><dt>Recipient address</dt><dd><?= nl2br(e($__v('recipient_address'))) ?></dd><?php endif; ?>
+      </dl>
+    <?php endif; ?>
+    <?php if ($__v('acknowledgment_instructions') !== ''): ?>
+      <p style="margin:0 0 10px"><strong>Instructions:</strong> <?= nl2br(e($__v('acknowledgment_instructions'))) ?></p>
+    <?php endif; ?>
+    <?php if ($__hasRef): ?>
+      <dl class="kv" style="margin:0">
+        <dt>Referred by</dt><dd><?= e($__v('referrer_name')) ?></dd>
+        <?php if ($__v('referrer_phone') !== ''): ?><dt>Referrer phone</dt><dd><?= e($__v('referrer_phone')) ?></dd><?php endif; ?>
+        <?php if ($__v('referral_notes') !== ''): ?><dt>Referral notes</dt><dd><?= nl2br(e($__v('referral_notes'))) ?></dd><?php endif; ?>
+      </dl>
+    <?php else: ?>
+      <p class="muted" style="margin:0;font-size:13px">No referrer was added.</p>
+    <?php endif; ?>
+  </div>
   <?php if ($duplicates): ?>
     <div class="alert alert-error" role="alert"><strong>Possible duplicate:</strong> the same reference appears on
       <?php foreach ($duplicates as $dup): ?><a href="<?= e(base_url('admin/donations/' . (int) $dup['id'])) ?>"><?= e((string) $dup['public_reference']) ?></a> <?php endforeach; ?>

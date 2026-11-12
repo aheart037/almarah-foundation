@@ -13,7 +13,7 @@
 <div class="dash-head">
   <div>
     <h1>Users</h1>
-    <p class="sub">Fundraisers, donors and staff accounts.</p>
+    <p class="sub">Donor and staff accounts.</p>
   </div>
   <?php if ($can('users.create') || $can('users.manage')): ?><a class="btn btn-brand" href="<?= e(base_url('admin/users/create')) ?>">Create user</a><?php endif; ?>
 </div>

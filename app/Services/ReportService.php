@@ -38,6 +38,9 @@ final class ReportService
     /** Donations stuck unresolved for longer than this are "stale". */
     private const STALE_MINUTES = 30;
 
+    /** A donation still waiting on staff verification. Failed, cancelled, abandoned and refunded payments are never "awaiting". */
+    private const AWAITING_SQL = "d.verification_status NOT IN ('verified','rejected','legacy') AND d.status IN ('pending','processing','completed')";
+
     public function __construct(private Database $db)
     {
     }
@@ -48,14 +51,14 @@ final class ReportService
     public static function catalog(): array
     {
         return [
-            'overview'       => ['title' => 'Reports Overview Dashboard', 'short' => 'Key fundraising numbers, trends and payment health.', 'icon' => 'grid'],
+            'overview'       => ['title' => 'Reports Overview Dashboard', 'short' => 'Key donation numbers, trends and payment health.', 'icon' => 'grid'],
             'donations'      => ['title' => 'Donation Summary Report', 'short' => 'Confirmed giving by day, month or year, with refunds.', 'icon' => 'heart'],
             'payments'       => ['title' => 'Payment Transactions Report', 'short' => 'Every gateway attempt and what the bank answered.', 'icon' => 'card'],
             'campaigns'      => ['title' => 'Campaign Performance Report', 'short' => 'Raised, donors and goals for each campaign.', 'icon' => 'flag'],
-            'fundraisers'    => ['title' => 'Fundraiser Performance Report', 'short' => 'Progress to goal for every fundraiser page.', 'icon' => 'trend'],
-            'teams'          => ['title' => 'Fundraising Team Report', 'short' => 'Team totals, members and goal progress.', 'icon' => 'users'],
+            'purposes'       => ['title' => 'Donation Purpose Report', 'short' => 'Where gifts went: raised, donors and zakat-eligible giving by purpose.', 'icon' => 'trend'],
+            'referrers'      => ['title' => 'Referrer Report', 'short' => 'Who referred donors, and what those gifts total.', 'icon' => 'users'],
             'donors'         => ['title' => 'Donor Report', 'short' => 'Who gave, how much, and new versus returning donors.', 'icon' => 'user'],
-            'approvals'      => ['title' => 'Fundraiser Approval Report', 'short' => 'Review decisions, reviewers and turnaround time.', 'icon' => 'check'],
+            'verification'   => ['title' => 'Donation Verification Report', 'short' => 'Verification status, decisions, reviewers and turnaround time.', 'icon' => 'check'],
             'reconciliation' => ['title' => 'Bank Transfer & Reconciliation Report', 'short' => 'Donations and bank records that do not agree.', 'icon' => 'scale'],
             'refunds'        => ['title' => 'Refund & Failed Payment Report', 'short' => 'Refunds, failures, cancellations and the reasons.', 'icon' => 'undo'],
             'financial'      => ['title' => 'Financial Summary Report', 'short' => 'Gross received, refunds and net by period.', 'icon' => 'bank'],
@@ -90,10 +93,10 @@ final class ReportService
             'donations'      => $this->donationSummary($filters, $page, $perPage),
             'payments'       => $this->payments($filters, $page, $perPage),
             'campaigns'      => $this->campaigns($filters, $page, $perPage),
-            'fundraisers'    => $this->fundraisers($filters, $page, $perPage),
-            'teams'          => $this->teams($filters, $page, $perPage),
+            'purposes'       => $this->purposes($filters, $page, $perPage),
+            'referrers'      => $this->referrers($filters, $page, $perPage),
             'donors'         => $this->donors($filters, $page, $perPage),
-            'approvals'      => $this->approvals($filters, $page, $perPage),
+            'verification'   => $this->verification($filters, $page, $perPage),
             'reconciliation' => $this->reconciliation($filters, $page, $perPage),
             'refunds'        => $this->refunds($filters, $page, $perPage),
             'financial'      => $this->financial($filters, $page, $perPage),
@@ -168,14 +171,14 @@ final class ReportService
 
         $f['gateway'] = $one($str('gateway', 40), array_column($this->gateways(), 'code'));
         $f['campaign_id'] = $id($str('campaign_id', 10));
-        $f['category_id'] = $id($str('category_id', 10));
+        $f['purpose_id'] = $id($str('purpose_id', 10));
         $f['status'] = $str('status', 40);
         $f['group'] = $one($str('group', 8), ['day', 'month', 'year']) ?: 'month';
         $f['environment'] = $one($str('environment', 10), ['sandbox', 'live']);
         $f['type'] = $str('type', 20);
         $f['issue'] = $str('issue', 40);
         $f['receipt_status'] = $one($str('receipt_status', 12), ['not_sent', 'queued', 'sent', 'failed']);
-        $f['approval_status'] = $one($str('approval_status', 20), ['pending', 'approved', 'rejected', 'changes_requested']);
+        $f['review_status'] = $one($str('review_status', 12), ['verified', 'pending', 'rejected', 'legacy']);
         $f['donor_type'] = $one($str('donor_type', 10), ['new', 'returning']);
         $f['min_gifts'] = $one($str('min_gifts', 2), ['2', '3', '5']);
         $f['entity'] = $str('entity', 60);
@@ -238,14 +241,14 @@ final class ReportService
         $dStatus = ['completed' => 'Completed', 'pending' => 'Pending', 'processing' => 'Processing', 'failed' => 'Failed', 'cancelled' => 'Cancelled', 'refunded' => 'Refunded', 'abandoned' => 'Abandoned'];
 
         return match ($slug) {
-            'overview'    => [$q('Fundraiser title in the results table'), $currency],
+            'overview'    => [$q('Purpose name in the results table'), $currency],
             'donations'   => [$q('Donation reference, donor or email'), $currency, $gateway, $campaign, ['name' => 'group', 'label' => 'Group by', 'type' => 'select', 'options' => ['day' => 'Day', 'month' => 'Month', 'year' => 'Year'], 'noAny' => true]],
             'payments'    => [$q('Reference, order no. or bank transaction'), ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => $dStatus], $gateway, ['name' => 'environment', 'label' => 'Environment', 'type' => 'select', 'options' => ['live' => 'Live', 'sandbox' => 'Sandbox']], $currency],
             'campaigns'   => [$q('Campaign title'), ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => ['draft' => 'Draft', 'active' => 'Active', 'paused' => 'Paused', 'closed' => 'Closed']], $currency],
-            'fundraisers' => [$q('Title or owner'), ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => ['published' => 'Published', 'paused' => 'Paused', 'pending_review' => 'Pending review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'archived' => 'Archived', 'draft' => 'Draft']], $campaign, ['name' => 'category_id', 'label' => 'Category', 'type' => 'select', 'options' => array_column($this->db->select('SELECT id, name FROM fundraiser_categories ORDER BY sort_order, name'), 'name', 'id')], $currency],
-            'teams'       => [$q('Team or owner'), ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => ['active' => 'Active', 'archived' => 'Archived']], $campaign, $currency],
+            'purposes'    => [$q('Purpose name'), ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => ['active' => 'Active', 'hidden' => 'Hidden']], $currency],
+            'referrers'   => [$q('Referrer name or phone'), $currency],
             'donors'      => [$q('Name, email or phone'), ['name' => 'donor_type', 'label' => 'Donor type', 'type' => 'select', 'options' => ['new' => 'New donors', 'returning' => 'Returning donors']], ['name' => 'min_gifts', 'label' => 'Gifts', 'type' => 'select', 'options' => ['2' => '2 or more', '3' => '3 or more', '5' => '5 or more']], $gateway, $currency],
-            'approvals'   => [$q('Fundraiser or owner'), ['name' => 'approval_status', 'label' => 'Decision', 'type' => 'select', 'options' => ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'changes_requested' => 'Changes requested']], ['name' => 'status', 'label' => 'Page status', 'type' => 'select', 'options' => ['pending_review' => 'Pending review', 'published' => 'Published', 'approved' => 'Approved', 'rejected' => 'Rejected', 'changes_requested' => 'Changes requested', 'paused' => 'Paused', 'archived' => 'Archived', 'draft' => 'Draft']]],
+            'verification' => [$q('Donation reference, donor or referrer'), ['name' => 'review_status', 'label' => 'Verification', 'type' => 'select', 'options' => ['pending' => 'Awaiting verification', 'verified' => 'Verified', 'rejected' => 'Rejected', 'legacy' => 'Legacy (before review)']], $currency],
             'reconciliation' => [$q('Reference, order no. or bank transaction'), ['name' => 'issue', 'label' => 'Show', 'type' => 'select', 'options' => ['offline_transfers' => 'Bank transfers (not reconciled)', 'all' => 'All gateway transactions (incl. matched)', 'status_mismatch' => 'Status mismatch', 'unbacked_donation' => 'Confirmed without payment', 'amount_mismatch' => 'Amount mismatch', 'no_bank_reference' => 'No bank reference', 'stale' => 'Stuck unresolved']], $gateway, $currency],
             'refunds'     => [$q('Reference, donor or email'), ['name' => 'type', 'label' => 'Outcome', 'type' => 'select', 'options' => ['refunded' => 'Refunded', 'partial_refund' => 'Partial refunds', 'failed' => 'Failed', 'cancelled' => 'Cancelled', 'abandoned' => 'Abandoned']], $gateway, $currency],
             'financial'   => [$q('Donation reference, donor or email'), $currency, $gateway, ['name' => 'group', 'label' => 'Group by', 'type' => 'select', 'options' => ['day' => 'Day', 'month' => 'Month', 'year' => 'Year'], 'noAny' => true]],
@@ -387,7 +390,7 @@ final class ReportService
     private function zeroCounts(array $rows): array
     {
         foreach ($rows as &$r) {
-            foreach (['donations', 'donors', 'members', 'fundraisers'] as $k) {
+            foreach (['donations', 'donors', 'referred'] as $k) {
                 if (array_key_exists($k, $r) && $r[$k] === null) {
                     $r[$k] = 0;
                 }
@@ -502,8 +505,8 @@ final class ReportService
         $refund = $this->db->selectOne("SELECT COUNT(*) AS c, COALESCE(SUM(r.amount_minor),0) AS s FROM payment_refunds r JOIN donations d ON d.id = r.donation_id
                                         WHERE d.verification_status = 'verified' AND r.status = 'completed' AND r.currency = :cur AND " . $this->range('COALESCE(r.completed_at, r.created_at)', $f, $rp), $rp) ?? ['c' => 0, 's' => 0];
 
-        // Where confirmed money went: general fund versus fundraisers.
-        $general = (int) $this->db->int("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE {$where} AND d.status = 'completed' AND d.verification_status = 'verified' AND d.fundraiser_id IS NULL", $p);
+        // Confirmed money that is not tied to a donation purpose.
+        $general = (int) $this->db->int("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE {$where} AND d.status = 'completed' AND d.verification_status = 'verified' AND d.purpose_id IS NULL", $p);
 
         // Trend: daily up to ~3 months, monthly beyond.
         $trend = $this->trend($f, $cur);
@@ -524,24 +527,17 @@ final class ReportService
         }
         unset($g);
 
-        // Top campaigns and fundraisers by confirmed money.
+        // Top campaigns by confirmed money.
         $topCampaigns = $this->db->select(
             "SELECT c.title, COUNT(d.id) AS donations, COALESCE(SUM(d.amount_minor),0) AS raised_minor
              FROM campaigns c JOIN donations d ON d.campaign_id = c.id AND d.status = 'completed' AND d.verification_status = 'verified' AND {$where}
              WHERE c.deleted_at IS NULL GROUP BY c.id, c.title ORDER BY raised_minor DESC, c.id ASC LIMIT 5",
             $p
         );
-        $topFundraisers = $this->db->select(
-            "SELECT fr.title, COALESCE(c.title, '—') AS campaign, fr.goal_minor, COUNT(d.id) AS donations, COALESCE(SUM(d.amount_minor),0) AS raised_minor
-             FROM fundraisers fr JOIN donations d ON d.fundraiser_id = fr.id AND d.status = 'completed' AND d.verification_status = 'verified' AND {$where}
-             LEFT JOIN campaigns c ON c.id = fr.campaign_id
-             WHERE fr.deleted_at IS NULL GROUP BY fr.id, fr.title, c.title, fr.goal_minor ORDER BY raised_minor DESC, fr.id ASC LIMIT 10",
-            $p
-        );
 
         // "Right now" snapshot, independent of the date filter.
-        $pendingApprovals = $this->db->int("SELECT COUNT(*) FROM fundraisers WHERE deleted_at IS NULL AND status = 'pending_review'");
-        $liveFundraisers = $this->db->int("SELECT COUNT(*) FROM fundraisers WHERE deleted_at IS NULL AND status = 'published'");
+        $pendingVerification = $this->db->int('SELECT COUNT(*) FROM donations d WHERE ' . self::AWAITING_SQL);
+        $activePurposes = $this->db->int("SELECT COUNT(*) FROM donation_purposes WHERE status = 'active'");
         $activeCampaigns = $this->db->int("SELECT COUNT(*) FROM campaigns WHERE deleted_at IS NULL AND status = 'active'");
         $stuck = $this->db->int("SELECT COUNT(*) FROM donations WHERE status IN ('pending','processing') AND created_at < (UTC_TIMESTAMP() - INTERVAL " . self::STALE_MINUTES . ' MINUTE)');
 
@@ -551,30 +547,30 @@ final class ReportService
             $notes[] = 'Other currencies exist in the system (' . implode(', ', $other) . '). Use the currency filter to view them; amounts are never converted or added together.';
         }
 
-        $fp = ['cur'=>$cur];
-        $frWhere = 'd.currency=:cur AND ' . $this->range('d.created_at',$f,$fp);
+        $fp = ['cur' => $cur];
+        $pWhere = 'd.currency = :cur AND ' . $this->range('d.created_at', $f, $fp);
         if ($f['q'] !== '') {
-            $frWhere .= ' AND fr.title LIKE ' . $this->p($fp,$this->like($f['q']));
+            $pWhere .= ' AND dp.name LIKE ' . $this->p($fp, $this->like($f['q']));
         }
-        $frSql = "SELECT fr.id, fr.title, COALESCE(c.title,'—') AS campaign, fr.goal_minor, COUNT(d.id) AS donations,
-            COALESCE(SUM(d.amount_minor),0) AS raised_minor FROM fundraisers fr
-            JOIN donations d ON d.fundraiser_id=fr.id AND d.status='completed' AND d.verification_status='verified'
-            LEFT JOIN campaigns c ON c.id=fr.campaign_id WHERE fr.deleted_at IS NULL AND {$frWhere}
-            GROUP BY fr.id,fr.title,c.title,fr.goal_minor";
-        $frCount = $this->db->int("SELECT COUNT(*) FROM ({$frSql}) all_fr",$fp);
+        $frSql = "SELECT dp.id, dp.name AS title, COALESCE(c.title,'—') AS campaign, COUNT(d.id) AS donations,
+            COALESCE(SUM(d.amount_minor),0) AS raised_minor FROM donation_purposes dp
+            JOIN donations d ON d.purpose_id = dp.id AND d.status = 'completed' AND d.verification_status = 'verified'
+            LEFT JOIN campaigns c ON c.id = dp.campaign_id WHERE {$pWhere}
+            GROUP BY dp.id, dp.name, c.title";
+        $frCount = $this->db->int("SELECT COUNT(*) FROM ({$frSql}) all_p", $fp);
         $frOrder = match ($f['sort']) {
             'title' => 'title', 'donations' => 'donations', 'raised_minor' => 'raised_minor', default => 'raised_minor',
         };
         $frDir = $f['sort'] === '' && !$f['dir_given'] ? 'DESC' : strtoupper($f['dir']);
-        $listedFundraisers = $this->db->select("SELECT * FROM ({$frSql}) all_fr ORDER BY {$frOrder} {$frDir},id ASC" . $this->limit($page,$perPage),$fp);
+        $listedPurposes = $this->db->select("SELECT * FROM ({$frSql}) all_p ORDER BY {$frOrder} {$frDir},id ASC" . $this->limit($page, $perPage), $fp);
         $topRows = [];
-        foreach ($listedFundraisers as $r) {
+        foreach ($listedPurposes as $r) {
             $topRows[] = ['title' => $r['title'], 'campaign' => $r['campaign'], 'donations' => (int) $r['donations'], 'raised_minor' => (int) $r['raised_minor'],
-                'goal_pct' => (int) $r['goal_minor'] > 0 ? $this->ratio((int) $r['raised_minor'], (int) $r['goal_minor']) : null, 'currency' => $cur];
+                'share_pct' => $this->ratio((int) $r['raised_minor'], $confirmed), 'currency' => $cur];
         }
 
         return [
-            'description' => 'Fundraising totals, trends and payment health for the chosen period.',
+            'description' => 'Donation totals, trends and payment health for the chosen period.',
             'basis'       => 'Donations are dated by the day the donor gave (donation date). Refunds by the day they were paid back. Amounts in ' . $cur . '.',
             'summary'     => [
                 $this->money('Confirmed donations', $confirmed, $cur, number_format($confirmedN) . ' staff-verified completed'),
@@ -589,10 +585,9 @@ final class ReportService
                 $this->money('Rejected amount', (int)($this->db->scalar("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE {$where} AND d.verification_status='rejected'", $p) ?: 0), $cur),
                 $this->count('Failed payments', (int)$this->db->int("SELECT COUNT(*) FROM payment_transactions pt JOIN donations d ON d.id=pt.donation_id WHERE d.currency=:cur AND pt.status='failed' AND " . $this->rangeLiteral('pt.created_at', $f), ['cur'=>$cur])),
                 $this->pct('Payment success rate', $this->ratio($confirmedN + $n('refunded'), $finished), number_format($failedN) . ' failed, cancelled or abandoned'),
-                $this->count('Live fundraisers', $liveFundraisers, 'right now'),
-                $this->count('Total fundraisers', $this->db->int('SELECT COUNT(*) FROM fundraisers WHERE deleted_at IS NULL'), 'right now'),
+                $this->count('Active purposes', $activePurposes, 'right now'),
                 $this->count('Active campaigns', $activeCampaigns, 'right now'),
-                $this->count('Awaiting approval', $pendingApprovals, 'fundraisers in review, right now'),
+                $this->count('Awaiting verification', $pendingVerification, 'donations in review, right now'),
                 $this->count('Stuck payments', $stuck, 'unresolved over ' . self::STALE_MINUTES . ' minutes, right now'),
             ],
             'chart'       => ['series' => $trend['series'], 'unit' => $trend['unit']],
@@ -601,17 +596,17 @@ final class ReportService
             'topCampaigns' => $topCampaigns,
             'general'     => $general,
             'columns'     => [
-                ['key' => 'title', 'label' => 'Fundraiser', 'sort' => 'title', 'w' => 4],
+                ['key' => 'title', 'label' => 'Purpose', 'sort' => 'title', 'w' => 4],
                 ['key' => 'campaign', 'label' => 'Campaign', 'w' => 3],
                 ['key' => 'donations', 'label' => 'Donations', 'type' => 'int', 'align' => 'right', 'sort' => 'donations', 'w' => 1.4],
                 ['key' => 'raised_minor', 'label' => 'Raised', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_minor', 'w' => 2],
-                ['key' => 'goal_pct', 'label' => 'Of goal', 'type' => 'percent', 'align' => 'right', 'w' => 1.4],
+                ['key' => 'share_pct', 'label' => 'Share of verified', 'type' => 'percent', 'align' => 'right', 'w' => 1.8],
             ],
             'rows'        => $topRows,
             'total'       => $frCount,
             'sort'        => $frOrder,
             'dir'         => strtolower($frDir),
-            'rowsTitle'   => 'Fundraisers with verified donations in this period',
+            'rowsTitle'   => 'Purposes with verified donations in this period',
             'extra'       => [
                 ['title' => 'Recent transactions', 'columns' => [
                     ['key'=>'public_reference','label'=>'Donation','type'=>'code','w'=>2.3],
@@ -665,7 +660,7 @@ final class ReportService
                     'period'=>$point['label'], 'donations'=>(int)$point['count'], 'confirmed_minor'=>(int)$point['minor']
                 ], $trend['series']), $cur)],
             ],
-            'notes'       => array_merge($notes, $general > 0 ? ['General-fund donations (not attached to a fundraiser) in this period: ' . money($general, $cur) . '. They are included in the totals above.'] : []),
+            'notes'       => array_merge($notes, $general > 0 ? ['Donations not linked to a purpose in this period: ' . money($general, $cur) . '. They are included in the totals above.'] : []),
         ];
     }
 
@@ -958,17 +953,12 @@ final class ReportService
         if ($f['q'] !== '') {
             $where .= ' AND c.title LIKE ' . $this->p($params, $this->like($f['q']));
         }
-        $goalSql = '(SELECT COALESCE(SUM(fr.goal_minor),0) FROM fundraisers fr WHERE fr.campaign_id = c.id AND fr.deleted_at IS NULL AND fr.currency = ' . $this->p($params, $cur) . ')';
 
         $columns = [
-            ['key' => 'title', 'label' => 'Campaign', 'sort' => 'c.title', 'w' => 4, 'link' => 'campaign'],
-            ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'sort' => 'c.status', 'w' => 1.6],
+            ['key' => 'title', 'label' => 'Campaign', 'sort' => 'title', 'w' => 4, 'link' => 'campaign'],
+            ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'sort' => 'status', 'w' => 1.6],
             ['key' => 'runs', 'label' => 'Runs', 'w' => 3],
-            ['key' => 'fundraisers', 'label' => 'Fundraisers', 'type' => 'int', 'align' => 'right', 'sort' => 'fundraisers', 'w' => 1.7],
-            ['key' => 'goal_minor', 'label' => 'Combined goals', 'type' => 'money', 'align' => 'right', 'sort' => 'goal_minor', 'w' => 2.3],
-            ['key' => 'remaining_minor', 'label' => 'Remaining to combined goals', 'type' => 'money', 'w' => 2.5],
             ['key' => 'raised_minor', 'label' => 'Raised', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_minor', 'w' => 2.2],
-            ['key' => 'goal_pct', 'label' => 'Of goals', 'type' => 'percent', 'align' => 'right', 'sort' => 'goal_pct', 'w' => 1.4],
             ['key' => 'donations', 'label' => 'Donations', 'type' => 'int', 'align' => 'right', 'sort' => 'donations', 'w' => 1.6],
             ['key' => 'donors', 'label' => 'Donors', 'type' => 'int', 'align' => 'right', 'sort' => 'donors', 'w' => 1.3],
             ['key' => 'average_minor', 'label' => 'Average', 'type' => 'money', 'align' => 'right', 'sort' => 'average_minor', 'w' => 2],
@@ -977,8 +967,6 @@ final class ReportService
         ];
         [$order, $sortKey, $dir] = $this->order($columns, $f, 'raised_minor', 'desc', 'id ASC');
         $inner = "SELECT c.id, c.title, c.status, c.start_at, c.end_at,
-                    (SELECT COUNT(*) FROM fundraisers fr WHERE fr.campaign_id = c.id AND fr.deleted_at IS NULL) AS fundraisers,
-                    {$goalSql} AS goal_minor,
                     COALESCE(SUM(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' THEN d.amount_minor END),0) AS raised_minor,
                     SUM(d.status = 'completed' AND d.verification_status = 'verified') AS donations,
                     COUNT(DISTINCT CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' THEN d.donor_id END) AS donors,
@@ -986,7 +974,7 @@ final class ReportService
                     COALESCE(SUM(CASE WHEN d.status IN ('pending','processing') THEN d.amount_minor END),0) AS pending_minor,
                     COALESCE(SUM(CASE WHEN d.status = 'refunded' THEN d.amount_minor END),0) AS refunded_minor
                   FROM campaigns c LEFT JOIN donations d ON {$join} WHERE {$where} GROUP BY c.id, c.title, c.status, c.start_at, c.end_at";
-        $outer = "SELECT x.*, CASE WHEN x.goal_minor > 0 THEN ROUND(x.raised_minor / x.goal_minor * 100, 1) END AS goal_pct, CASE WHEN x.goal_minor > 0 THEN GREATEST(x.goal_minor-x.raised_minor,0) END AS remaining_minor FROM ({$inner}) x";
+        $outer = "SELECT x.* FROM ({$inner}) x";
 
         $total = $this->db->int("SELECT COUNT(*) FROM ({$inner}) y", $params);
         $rows = $this->db->select("SELECT * FROM ({$outer}) z{$order}" . $this->limit($page, $perPage), $params);
@@ -1005,7 +993,7 @@ final class ReportService
         $unattached = (int) $this->db->int("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE d.status = 'completed' AND d.verification_status = 'verified' AND d.campaign_id IS NULL AND d.currency = :cur AND " . $this->range('d.created_at', $f, $up), $up);
 
         return [
-            'description' => 'How each campaign is doing: money raised, donors and progress against its fundraisers\' goals.',
+            'description' => 'How each campaign is doing: money raised, donors, pending and refunded gifts.',
             'basis'       => 'Donations dated by donation date and linked by the campaign recorded on each donation. Currency ' . $cur . '.',
             'summary'     => [
                 $this->count('Campaigns', (int) ($all['campaigns'] ?? 0), number_format($active) . ' active'),
@@ -1020,7 +1008,7 @@ final class ReportService
             'total'       => $total,
             'sort'        => $sortKey,
             'dir'         => $dir,
-            'notes'       => ['Campaigns have no goal of their own. "Combined goals" adds up the goals of the fundraisers inside the campaign (same currency), and "Of goals" compares ALL-period raised money in the filtered range against that total.'],
+            'notes'       => ['Only staff-verified completed donations count as raised. Pending, rejected and refunded gifts are shown on their own columns.'],
         ];
     }
 
@@ -1034,173 +1022,165 @@ final class ReportService
         return trim(($start !== '' ? $fmt($start) : 'Any time') . ' – ' . ($end !== '' ? $fmt($end) : 'ongoing'));
     }
 
-    // ================================================================== 5. FUNDRAISER PERFORMANCE
+    // ================================================================== 5. DONATION PURPOSES
 
     /** @param array<string,mixed> $f */
-    private function fundraisers(array $f, int $page, int $perPage): array
+    private function purposes(array $f, int $page, int $perPage): array
     {
         $cur = $f['currency'];
-        $params = [];
-        $join = 'd.fundraiser_id = fr.id AND d.currency = ' . $this->p($params, $cur);
-        $inRange = $this->rangeLiteral('d.created_at', $f); // used several times in one statement
+        $aw = self::AWAITING_SQL;
+        $ok = "d.status = 'completed' AND d.verification_status = 'verified'";
 
-        $where = 'fr.deleted_at IS NULL AND fr.currency = ' . $this->p($params, $cur);
-        if ($f['status'] !== '') {
-            $where .= ' AND fr.status = ' . $this->p($params, $f['status']);
-        }
-        if ($f['campaign_id'] !== '') {
-            $where .= ' AND fr.campaign_id = ' . $this->p($params, (int) $f['campaign_id']);
-        }
-        if ($f['category_id'] !== '') {
-            $where .= ' AND fr.category_id = ' . $this->p($params, (int) $f['category_id']);
+        // Donation conditions live in the JOIN, so purposes without gifts in
+        // the period still appear (with zeros).
+        $params = [];
+        $join = 'd.purpose_id = dp.id AND d.currency = ' . $this->p($params, $cur) . ' AND ' . $this->range('d.created_at', $f, $params);
+
+        $where = '1 = 1';
+        if (in_array($f['status'], ['active', 'hidden'], true)) {
+            $where .= ' AND dp.status = ' . $this->p($params, $f['status']);
         }
         if ($f['q'] !== '') {
-            $like = $this->like($f['q']);
-            $where .= ' AND (fr.title LIKE ' . $this->p($params, $like) . ' OR u.email LIKE ' . $this->p($params, $like)
-                . ' OR CONCAT(u.first_name, \' \', u.last_name) LIKE ' . $this->p($params, $like) . ')';
+            $where .= ' AND dp.name LIKE ' . $this->p($params, $this->like($f['q']));
         }
 
         $columns = [
-            ['key' => 'title', 'label' => 'Fundraiser', 'sort' => 'title', 'w' => 4, 'link' => 'fundraiser'],
-            ['key' => 'owner', 'label' => 'Owner', 'sort' => 'owner', 'w' => 2.4],
-            ['key' => 'campaign', 'label' => 'Campaign', 'sort' => 'campaign', 'w' => 2.4],
-            ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'sort' => 'status', 'w' => 1.8],
-            ['key' => 'goal_minor', 'label' => 'Goal', 'type' => 'money', 'align' => 'right', 'sort' => 'goal_minor', 'w' => 2],
-            ['key' => 'raised_period', 'label' => 'Raised (period)', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_period', 'w' => 2.2],
-            ['key' => 'raised_total', 'label' => 'Raised (all time)', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_total', 'w' => 2.2],
-            ['key' => 'goal_pct', 'label' => 'Of goal', 'type' => 'percent', 'align' => 'right', 'sort' => 'goal_pct', 'w' => 1.4],
-            ['key' => 'donations', 'label' => 'Gifts', 'type' => 'int', 'align' => 'right', 'sort' => 'donations', 'w' => 1.1],
+            ['key' => 'name', 'label' => 'Purpose', 'sort' => 'name', 'w' => 4],
+            ['key' => 'campaign', 'label' => 'Campaign', 'sort' => 'campaign', 'w' => 2.8],
+            ['key' => 'zakat', 'label' => 'Zakat eligible', 'w' => 1.8],
+            ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'sort' => 'status', 'w' => 1.5],
+            ['key' => 'raised_minor', 'label' => 'Raised', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_minor', 'w' => 2.2],
+            ['key' => 'share_pct', 'label' => 'Share of verified', 'type' => 'percent', 'align' => 'right', 'w' => 1.8],
+            ['key' => 'donations', 'label' => 'Donations', 'type' => 'int', 'align' => 'right', 'sort' => 'donations', 'w' => 1.6],
             ['key' => 'donors', 'label' => 'Donors', 'type' => 'int', 'align' => 'right', 'sort' => 'donors', 'w' => 1.3],
             ['key' => 'average_minor', 'label' => 'Average', 'type' => 'money', 'align' => 'right', 'sort' => 'average_minor', 'w' => 2],
-            ['key' => 'pending_minor', 'label' => 'Pending', 'type' => 'money', 'align' => 'right', 'sort' => 'pending_minor', 'w' => 2],
-            ['key' => 'end_at', 'label' => 'Ends', 'type' => 'date', 'sort' => 'end_at', 'w' => 1.8],
+            ['key' => 'pending_minor', 'label' => 'Awaiting verification', 'type' => 'money', 'align' => 'right', 'sort' => 'pending_minor', 'w' => 2.4],
+            ['key' => 'refunded_minor', 'label' => 'Refunded', 'type' => 'money', 'align' => 'right', 'sort' => 'refunded_minor', 'w' => 2],
         ];
-        [$order, $sortKey, $dir] = $this->order($columns, $f, 'raised_period', 'desc', 'id ASC');
-        $inner = "SELECT fr.id, fr.title, fr.status, fr.goal_minor, fr.end_at, COALESCE(c.title,'—') AS campaign,
-                    TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS owner,
-                    COALESCE(SUM(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange} THEN d.amount_minor END),0) AS raised_period,
-                    COALESCE(SUM(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' THEN d.amount_minor END),0) AS raised_total,
-                    SUM(d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange}) AS donations,
-                    COUNT(DISTINCT CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange} THEN d.donor_id END) AS donors,
-                    COALESCE(ROUND(AVG(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange} THEN d.amount_minor END)),0) AS average_minor,
-                    COALESCE(SUM(CASE WHEN d.status IN ('pending','processing') AND {$inRange} THEN d.amount_minor END),0) AS pending_minor
-                  FROM fundraisers fr LEFT JOIN users u ON u.id = fr.owner_user_id LEFT JOIN campaigns c ON c.id = fr.campaign_id
-                  LEFT JOIN donations d ON {$join}
-                  WHERE {$where} GROUP BY fr.id, fr.title, fr.status, fr.goal_minor, fr.end_at, c.title, u.first_name, u.last_name";
-        $outer = "SELECT x.*, CASE WHEN x.goal_minor > 0 THEN ROUND(x.raised_total / x.goal_minor * 100, 1) END AS goal_pct FROM ({$inner}) x";
-        return $this->finishFundraisers($f, $cur, $columns, $sortKey, $dir, $order, $outer, $inner, $params, $page, $perPage);
-    }
+        [$order, $sortKey, $dir] = $this->order($columns, $f, 'raised_minor', 'desc', 'id ASC');
 
-    /** Shared tail of the fundraiser report: counts, rows, summary. */
-    private function finishFundraisers(array $f, string $cur, array $columns, string $sortKey, string $dir, string $order, string $outer, string $inner, array $params, int $page, int $perPage): array
-    {
+        $inner = "SELECT dp.id, dp.name, dp.status, dp.is_zakat_eligible, COALESCE(c.title,'—') AS campaign,
+                    COALESCE(SUM(CASE WHEN {$ok} THEN d.amount_minor END),0) AS raised_minor,
+                    COALESCE(SUM(CASE WHEN {$ok} THEN 1 END),0) AS donations,
+                    COUNT(DISTINCT CASE WHEN {$ok} THEN d.donor_id END) AS donors,
+                    COALESCE(ROUND(AVG(CASE WHEN {$ok} THEN d.amount_minor END)),0) AS average_minor,
+                    COALESCE(SUM(CASE WHEN {$aw} THEN d.amount_minor END),0) AS pending_minor,
+                    COALESCE(SUM(CASE WHEN d.status = 'refunded' AND d.verification_status = 'verified' THEN d.amount_minor END),0) AS refunded_minor
+                  FROM donation_purposes dp
+                  LEFT JOIN campaigns c ON c.id = dp.campaign_id
+                  LEFT JOIN donations d ON {$join}
+                  WHERE {$where} GROUP BY dp.id, dp.name, dp.status, dp.is_zakat_eligible, c.title";
+
         $total = $this->db->int("SELECT COUNT(*) FROM ({$inner}) y", $params);
-        $rows = $this->zeroCounts($this->db->select("SELECT * FROM ({$outer}) z{$order}" . $this->limit($page, $perPage), $params));
-        $a = $this->db->selectOne(
-            "SELECT COALESCE(SUM(goal_minor),0) AS goal, COALESCE(SUM(raised_period),0) AS period, COALESCE(SUM(raised_total),0) AS total,
-                    COALESCE(SUM(donations),0) AS gifts, COALESCE(SUM(pending_minor),0) AS pending,
-                    SUM(goal_minor > 0 AND raised_total >= goal_minor) AS reached, SUM(raised_total = 0) AS empty_pages
+        $rows = $this->db->select("SELECT * FROM ({$inner}) z{$order}" . $this->limit($page, $perPage), $params);
+
+        // Everything verified in the period, for the "share" column.
+        $gp = ['cur' => $cur];
+        $grand = (int) $this->db->int("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE {$ok} AND d.currency = :cur AND " . $this->range('d.created_at', $f, $gp), $gp);
+        foreach ($rows as &$r) {
+            $r['donations'] = (int) $r['donations'];
+            $r['donors'] = (int) $r['donors'];
+            $r['zakat'] = (int) $r['is_zakat_eligible'] === 1 ? 'Yes' : 'No';
+            $r['share_pct'] = $this->ratio((int) $r['raised_minor'], $grand);
+        }
+        unset($r);
+
+        $all = $this->db->selectOne(
+            "SELECT COALESCE(SUM(raised_minor),0) AS raised, COALESCE(SUM(donations),0) AS n, COALESCE(SUM(pending_minor),0) AS pending,
+                    COALESCE(SUM(CASE WHEN is_zakat_eligible = 1 THEN raised_minor END),0) AS zakat
              FROM ({$inner}) y",
             $params
         ) ?? [];
+        $best = $this->db->selectOne("SELECT name, raised_minor FROM ({$inner}) y WHERE raised_minor > 0 ORDER BY raised_minor DESC, id ASC LIMIT 1", $params);
+
+        $np = ['cur' => $cur];
+        $noPurpose = (int) $this->db->int("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE {$ok} AND d.purpose_id IS NULL AND d.currency = :cur AND " . $this->range('d.created_at', $f, $np), $np);
 
         return [
-            'description' => 'Progress to goal for every fundraiser page.',
-            'basis'       => 'Raised (period) counts staff-verified completed donations dated in range; all-time uses every standing verified gift. Currency ' . $cur . '.',
+            'description' => 'Where gifts went: money raised, donors and pending gifts for each donation purpose.',
+            'basis'       => 'Donations dated by donation date and grouped by the purpose chosen on each donation. Only staff-verified completed gifts count as raised. Currency ' . $cur . '.',
             'summary'     => [
-                $this->count('Fundraisers listed', $total),
-                $this->money('Raised in period', (int) ($a['period'] ?? 0), $cur, number_format((int) ($a['gifts'] ?? 0)) . ' donations'),
-                $this->money('Raised all time', (int) ($a['total'] ?? 0), $cur, 'of ' . money((int) ($a['goal'] ?? 0), $cur) . ' in goals'),
-                $this->pct('Overall progress', $this->ratio((int) ($a['total'] ?? 0), (int) ($a['goal'] ?? 0)), 'all-time raised against combined goals'),
-                $this->count('Goals reached', (int) ($a['reached'] ?? 0)),
-                $this->count('No donations yet', (int) ($a['empty_pages'] ?? 0)),
-                $this->money('Awaiting the bank', (int) ($a['pending'] ?? 0), $cur),
+                $this->count('Purposes listed', $total),
+                $this->money('Raised through purposes', (int) ($all['raised'] ?? 0), $cur, number_format((int) ($all['n'] ?? 0)) . ' verified donations'),
+                $this->money('In zakat-eligible purposes', (int) ($all['zakat'] ?? 0), $cur, 'purposes marked zakat eligible'),
+                $this->money('Not tied to a purpose', $noPurpose, $cur, 'general giving'),
+                $this->money('Awaiting verification', (int) ($all['pending'] ?? 0), $cur),
+                $this->text('Top purpose', $best !== null ? (string) $best['name'] : '—', $best !== null ? money((int) $best['raised_minor'], $cur) : 'no verified donations'),
             ],
             'columns'     => $columns,
             'rows'        => $this->withCurrency($rows, $cur),
             'total'       => $total,
             'sort'        => $sortKey,
             'dir'         => $dir,
-            'notes'       => ['General-fund donations (no fundraiser) are not part of this report; see the Donation Summary or Overview.'],
+            'notes'       => ['"Share of verified" compares each purpose with all verified giving in the period, including gifts that have no purpose. "Zakat eligible" shows whether the purpose is set up to receive zakat; it does not mean every gift to it was zakat.'],
         ];
     }
 
-    // ================================================================== 6. FUNDRAISING TEAMS
+    // ================================================================== 6. REFERRERS
 
     /** @param array<string,mixed> $f */
-    private function teams(array $f, int $page, int $perPage): array
+    private function referrers(array $f, int $page, int $perPage): array
     {
         $cur = $f['currency'];
-        $params = [];
-        $join = 'd.team_id = t.id AND d.currency = ' . $this->p($params, $cur);
-        $inRange = $this->rangeLiteral('d.created_at', $f);
+        $aw = self::AWAITING_SQL;
+        $ok = "d.status = 'completed' AND d.verification_status = 'verified'";
 
-        $where = 't.deleted_at IS NULL AND t.currency = ' . $this->p($params, $cur);
-        if ($f['status'] !== '') {
-            $where .= ' AND t.status = ' . $this->p($params, $f['status']);
-        }
-        if ($f['campaign_id'] !== '') {
-            $where .= ' AND t.campaign_id = ' . $this->p($params, (int) $f['campaign_id']);
-        }
+        $p = [];
+        $where = "d.referral_enabled = 1 AND TRIM(COALESCE(d.referrer_name,'')) <> '' AND d.currency = " . $this->p($p, $cur) . ' AND ' . $this->range('d.created_at', $f, $p);
         if ($f['q'] !== '') {
             $like = $this->like($f['q']);
-            $where .= ' AND (t.name LIKE ' . $this->p($params, $like) . ' OR u.email LIKE ' . $this->p($params, $like)
-                . ' OR CONCAT(u.first_name, \' \', u.last_name) LIKE ' . $this->p($params, $like) . ')';
+            $where .= ' AND (d.referrer_name LIKE ' . $this->p($p, $like) . ' OR d.referrer_phone LIKE ' . $this->p($p, $like) . ')';
         }
 
         $columns = [
-            ['key' => 'name', 'label' => 'Team', 'sort' => 'name', 'w' => 3.6],
-            ['key' => 'owner', 'label' => 'Owner', 'sort' => 'owner', 'w' => 2.6],
-            ['key' => 'campaign', 'label' => 'Campaign', 'sort' => 'campaign', 'w' => 2.6],
-            ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'sort' => 'status', 'w' => 1.5],
-            ['key' => 'members', 'label' => 'Members', 'type' => 'int', 'align' => 'right', 'sort' => 'members', 'w' => 1.4],
-            ['key' => 'goal_minor', 'label' => 'Goal', 'type' => 'money', 'align' => 'right', 'sort' => 'goal_minor', 'w' => 2],
-            ['key' => 'raised_period', 'label' => 'Raised (period)', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_period', 'w' => 2.2],
-            ['key' => 'raised_total', 'label' => 'Raised (all time)', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_total', 'w' => 2.2],
-            ['key' => 'goal_pct', 'label' => 'Of goal', 'type' => 'percent', 'align' => 'right', 'sort' => 'goal_pct', 'w' => 1.4],
-            ['key' => 'donations', 'label' => 'Gifts', 'type' => 'int', 'align' => 'right', 'sort' => 'donations', 'w' => 1.1],
+            ['key' => 'referrer', 'label' => 'Referrer', 'sort' => 'referrer', 'w' => 4],
+            ['key' => 'phone', 'label' => 'Phone', 'w' => 2.4],
+            ['key' => 'referred', 'label' => 'Gifts referred', 'type' => 'int', 'align' => 'right', 'sort' => 'referred', 'w' => 1.8],
+            ['key' => 'donations', 'label' => 'Verified gifts', 'type' => 'int', 'align' => 'right', 'sort' => 'donations', 'w' => 1.8],
             ['key' => 'donors', 'label' => 'Donors', 'type' => 'int', 'align' => 'right', 'sort' => 'donors', 'w' => 1.3],
-            ['key' => 'last_gift', 'label' => 'Last gift', 'type' => 'datetime', 'sort' => 'last_gift', 'w' => 2.2],
+            ['key' => 'raised_minor', 'label' => 'Raised', 'type' => 'money', 'align' => 'right', 'sort' => 'raised_minor', 'w' => 2.2],
+            ['key' => 'average_minor', 'label' => 'Average', 'type' => 'money', 'align' => 'right', 'sort' => 'average_minor', 'w' => 2],
+            ['key' => 'pending_minor', 'label' => 'Awaiting verification', 'type' => 'money', 'align' => 'right', 'sort' => 'pending_minor', 'w' => 2.4],
+            ['key' => 'last_at', 'label' => 'Latest referral', 'type' => 'date', 'sort' => 'last_at', 'w' => 2],
         ];
-        [$order, $sortKey, $dir] = $this->order($columns, $f, 'raised_period', 'desc', 'id ASC');
-        $inner = "SELECT t.id, t.name, t.status, t.goal_minor, COALESCE(c.title,'—') AS campaign,
-                    TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS owner,
-                    (SELECT COUNT(*) FROM team_members tm WHERE tm.team_id = t.id) AS members,
-                    COALESCE(SUM(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange} THEN d.amount_minor END),0) AS raised_period,
-                    COALESCE(SUM(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' THEN d.amount_minor END),0) AS raised_total,
-                    SUM(d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange}) AS donations,
-                    COUNT(DISTINCT CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' AND {$inRange} THEN d.donor_id END) AS donors,
-                    MAX(CASE WHEN d.status = 'completed' AND d.verification_status = 'verified' THEN d.created_at END) AS last_gift
-                  FROM teams t LEFT JOIN users u ON u.id = t.owner_user_id LEFT JOIN campaigns c ON c.id = t.campaign_id
-                  LEFT JOIN donations d ON {$join}
-                  WHERE {$where} GROUP BY t.id, t.name, t.status, t.goal_minor, c.title, u.first_name, u.last_name";
-        $outer = "SELECT x.*, CASE WHEN x.goal_minor > 0 THEN ROUND(x.raised_total / x.goal_minor * 100, 1) END AS goal_pct FROM ({$inner}) x";
+        [$order, $sortKey, $dir] = $this->order($columns, $f, 'raised_minor', 'desc', 'referrer ASC');
 
-        $total = $this->db->int("SELECT COUNT(*) FROM ({$inner}) y", $params);
-        $rows = $this->zeroCounts($this->db->select("SELECT * FROM ({$outer}) z{$order}" . $this->limit($page, $perPage), $params));
-        $a = $this->db->selectOne(
-            "SELECT COALESCE(SUM(members),0) AS members, COALESCE(SUM(goal_minor),0) AS goal, COALESCE(SUM(raised_period),0) AS period,
-                    COALESCE(SUM(raised_total),0) AS total, COALESCE(SUM(donations),0) AS gifts, SUM(status = 'active') AS active
-             FROM ({$inner}) y",
-            $params
+        $inner = "SELECT TRIM(d.referrer_name) AS referrer, MAX(NULLIF(TRIM(d.referrer_phone),'')) AS phone, COUNT(*) AS referred,
+                    COALESCE(SUM(CASE WHEN {$ok} THEN 1 END),0) AS donations,
+                    COUNT(DISTINCT CASE WHEN {$ok} THEN d.donor_id END) AS donors,
+                    COALESCE(SUM(CASE WHEN {$ok} THEN d.amount_minor END),0) AS raised_minor,
+                    COALESCE(ROUND(AVG(CASE WHEN {$ok} THEN d.amount_minor END)),0) AS average_minor,
+                    COALESCE(SUM(CASE WHEN {$aw} THEN d.amount_minor END),0) AS pending_minor,
+                    DATE(MAX(d.created_at)) AS last_at
+                  FROM donations d WHERE {$where} GROUP BY TRIM(d.referrer_name)";
+
+        $total = $this->db->int("SELECT COUNT(*) FROM ({$inner}) y", $p);
+        $rows = $this->db->select("SELECT * FROM ({$inner}) z{$order}" . $this->limit($page, $perPage), $p);
+
+        $gp = ['cur' => $cur];
+        $grand = (int) $this->db->int("SELECT COALESCE(SUM(d.amount_minor),0) FROM donations d WHERE {$ok} AND d.currency = :cur AND " . $this->range('d.created_at', $f, $gp), $gp);
+        $all = $this->db->selectOne(
+            "SELECT COALESCE(SUM(raised_minor),0) AS raised, COALESCE(SUM(donations),0) AS n, COALESCE(SUM(pending_minor),0) AS pending FROM ({$inner}) y",
+            $p
         ) ?? [];
+        $best = $this->db->selectOne("SELECT referrer, raised_minor FROM ({$inner}) y WHERE raised_minor > 0 ORDER BY raised_minor DESC, referrer ASC LIMIT 1", $p);
 
         return [
-            'description' => 'Team totals, members and progress to goal.',
-            'basis'       => 'Linked by the team recorded on each donation. Raised (period) uses donation date; all-time and "Of goal" use staff-verified completed gifts. Currency ' . $cur . '.',
+            'description' => 'Who referred donors, and what those gifts total.',
+            'basis'       => 'Donations dated by donation date. Only gifts where the donor chose to name a referrer are included. Only staff-verified completed gifts count as raised. Currency ' . $cur . '.',
             'summary'     => [
-                $this->count('Teams', $total, number_format((int) ($a['active'] ?? 0)) . ' active'),
-                $this->count('Team members', (int) ($a['members'] ?? 0)),
-                $this->money('Raised in period', (int) ($a['period'] ?? 0), $cur, number_format((int) ($a['gifts'] ?? 0)) . ' donations'),
-                $this->money('Raised all time', (int) ($a['total'] ?? 0), $cur, 'of ' . money((int) ($a['goal'] ?? 0), $cur) . ' in goals'),
-                $this->pct('Overall progress', $this->ratio((int) ($a['total'] ?? 0), (int) ($a['goal'] ?? 0))),
+                $this->count('Referrers', $total),
+                $this->money('Raised through referrals', (int) ($all['raised'] ?? 0), $cur, number_format((int) ($all['n'] ?? 0)) . ' verified donations'),
+                $this->pct('Share of all verified giving', $this->ratio((int) ($all['raised'] ?? 0), $grand), 'referred gifts against everything verified in the period'),
+                $this->money('Awaiting verification', (int) ($all['pending'] ?? 0), $cur),
+                $this->text('Top referrer', $best !== null ? (string) $best['referrer'] : '—', $best !== null ? money((int) $best['raised_minor'], $cur) : 'no verified referred gifts'),
             ],
             'columns'     => $columns,
             'rows'        => $this->withCurrency($rows, $cur),
             'total'       => $total,
             'sort'        => $sortKey,
             'dir'         => $dir,
-            'notes'       => ['Only donations that were made through a team page carry a team, so a team\'s total can be lower than the sum of its members\' own fundraisers.'],
+            'notes'       => ['Referrer names are grouped as typed on the donation form, so two spellings of the same person appear as two rows.'],
         ];
     }
 
@@ -1294,93 +1274,90 @@ final class ReportService
         return $this->db->pdo()->quote($v);
     }
 
-    // ================================================================== 8. FUNDRAISER APPROVALS
+    // ================================================================== 8. DONATION VERIFICATION
 
     /** @param array<string,mixed> $f */
-    private function approvals(array $f, int $page, int $perPage): array
+    private function verification(array $f, int $page, int $perPage): array
     {
-        $decisionActions = "('fundraiser.approved','fundraiser.rejected','fundraiser.changes_requested')";
+        $cur = $f['currency'];
+        $waiting = self::AWAITING_SQL;
+        $decided = "d.verification_status IN ('verified','rejected')";
+
         $p = [];
-        $where = 'fr.deleted_at IS NULL';
-        if ($f['status'] !== '') {
-            $where .= ' AND fr.status = ' . $this->p($p, $f['status']);
-        } else {
-            $where .= " AND fr.status <> 'draft'"; // drafts were never sent for review
-        }
-        if ($f['approval_status'] !== '') {
-            $where .= ' AND fr.approval_status = ' . $this->p($p, $f['approval_status']);
-        }
+        $where = 'd.currency = ' . $this->p($p, $cur) . ' AND ' . $this->range('d.created_at', $f, $p);
+        $where .= match ($f['review_status']) {
+            'verified' => " AND d.verification_status = 'verified'",
+            'rejected' => " AND d.verification_status = 'rejected'",
+            'legacy'   => " AND d.verification_status = 'legacy'",
+            'pending'  => " AND {$waiting}",
+            default    => " AND d.verification_status <> 'legacy'", // legacy gifts were never reviewed
+        };
         if ($f['q'] !== '') {
             $like = $this->like($f['q']);
-            $where .= ' AND (fr.title LIKE ' . $this->p($p, $like) . ' OR u.email LIKE ' . $this->p($p, $like)
-                . ' OR CONCAT(u.first_name, \' \', u.last_name) LIKE ' . $this->p($p, $like) . ')';
+            $where .= ' AND (d.public_reference LIKE ' . $this->p($p, $like) . ' OR dn.name LIKE ' . $this->p($p, $like)
+                . ' OR dn.email LIKE ' . $this->p($p, $like) . ' OR d.referrer_name LIKE ' . $this->p($p, $like) . ')';
         }
-        $where .= ' AND ' . $this->range('COALESCE(sl.created_at, fr.created_at)', $f, $p);
 
-        $from = "FROM fundraisers fr
-                 LEFT JOIN campaigns c ON c.id = fr.campaign_id LEFT JOIN users u ON u.id = fr.owner_user_id
-                 LEFT JOIN audit_logs sl ON sl.id = (SELECT MAX(a.id) FROM audit_logs a WHERE a.entity_type = 'fundraiser' AND CAST(a.entity_id AS UNSIGNED) = fr.id AND a.action = 'fundraiser.submitted')
-                 LEFT JOIN audit_logs dl ON dl.id = (SELECT MAX(a.id) FROM audit_logs a WHERE a.entity_type = 'fundraiser' AND CAST(a.entity_id AS UNSIGNED) = fr.id AND a.action IN {$decisionActions})
-                 LEFT JOIN users ru ON ru.id = dl.user_id";
+        $from = "FROM donations d
+                 LEFT JOIN donors dn ON dn.id = d.donor_id
+                 LEFT JOIN donation_review_events de ON de.id = (SELECT MAX(e.id) FROM donation_review_events e WHERE e.donation_id = d.id AND e.decision IN ('approve','reject'))
+                 LEFT JOIN users du ON du.id = COALESCE(de.actor_user_id, d.verified_by)";
 
         $columns = [
-            ['key' => 'title', 'label' => 'Fundraiser', 'sort' => 'fr.title', 'w' => 4, 'link' => 'fundraiser'],
-            ['key' => 'campaign', 'label' => 'Campaign', 'w' => 2.8],
-            ['key' => 'owner', 'label' => 'Owner', 'sort' => 'owner', 'w' => 2.6],
+            ['key' => 'public_reference', 'label' => 'Donation', 'type' => 'code', 'sort' => 'd.public_reference', 'w' => 2.4, 'link' => 'donation'],
+            ['key' => 'donor', 'label' => 'Donor', 'sort' => 'donor', 'w' => 2.8],
+            ['key' => 'amount_minor', 'label' => 'Amount', 'type' => 'money', 'align' => 'right', 'sort' => 'd.amount_minor', 'w' => 2],
+            ['key' => 'method', 'label' => 'Payment method', 'w' => 2],
+            ['key' => 'payment_status', 'label' => 'Payment', 'type' => 'status', 'sort' => 'd.status', 'w' => 1.7],
+            ['key' => 'verification_status', 'label' => 'Verification', 'type' => 'status', 'sort' => 'd.verification_status', 'w' => 2],
             ['key' => 'submitted_at', 'label' => 'Submitted', 'type' => 'datetime', 'sort' => 'submitted_at', 'w' => 2.2],
-            ['key' => 'approval_status', 'label' => 'Decision', 'type' => 'status', 'sort' => 'fr.approval_status', 'w' => 2],
-            ['key' => 'status', 'label' => 'Page status', 'type' => 'status', 'sort' => 'fr.status', 'w' => 1.9],
             ['key' => 'reviewer', 'label' => 'Reviewed by', 'sort' => 'reviewer', 'w' => 3],
             ['key' => 'decided_at', 'label' => 'Decided', 'type' => 'datetime', 'sort' => 'decided_at', 'w' => 2.2],
             ['key' => 'review_hours', 'label' => 'Turnaround', 'type' => 'hours', 'align' => 'right', 'sort' => 'review_hours', 'w' => 1.7],
             ['key' => 'waiting_hours', 'label' => 'Waiting', 'type' => 'hours', 'align' => 'right', 'sort' => 'waiting_hours', 'w' => 1.6],
-            ['key' => 'rejection_reason', 'label' => 'Reason / note', 'w' => 3.4],
+            ['key' => 'note', 'label' => 'Reason / note', 'w' => 3.4],
         ];
-        [$order, $sortKey, $dir] = $this->order($columns, $f, 'submitted_at', 'desc', 'fr.id DESC');
+        [$order, $sortKey, $dir] = $this->order($columns, $f, 'submitted_at', 'desc', 'd.id DESC');
 
-        $select = "SELECT fr.id, fr.title, fr.status, fr.approval_status, fr.rejection_reason, COALESCE(c.title,'—') AS campaign,
-                    TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) AS owner,
-                    COALESCE(sl.created_at, fr.created_at) AS submitted_at, dl.created_at AS decided_at, ru.email AS reviewer,
-                    CASE WHEN dl.created_at IS NOT NULL AND dl.created_at >= COALESCE(sl.created_at, fr.created_at)
-                         THEN ROUND(TIMESTAMPDIFF(MINUTE, COALESCE(sl.created_at, fr.created_at), dl.created_at) / 60, 1) END AS review_hours,
-                    CASE WHEN fr.status = 'pending_review' THEN ROUND(TIMESTAMPDIFF(MINUTE, COALESCE(sl.created_at, fr.created_at), UTC_TIMESTAMP()) / 60, 1) END AS waiting_hours";
+        $select = "SELECT d.id, d.public_reference, d.currency, d.amount_minor, COALESCE(dn.name,'—') AS donor,
+                    COALESCE(NULLIF(d.payment_method,''), d.source, '—') AS method, d.status AS payment_status, d.verification_status,
+                    d.created_at AS submitted_at, du.email AS reviewer,
+                    CASE WHEN {$decided} THEN de.created_at END AS decided_at,
+                    CASE WHEN {$decided} AND de.created_at >= d.created_at THEN ROUND(TIMESTAMPDIFF(MINUTE, d.created_at, de.created_at) / 60, 1) END AS review_hours,
+                    CASE WHEN {$waiting} THEN ROUND(TIMESTAMPDIFF(MINUTE, d.created_at, UTC_TIMESTAMP()) / 60, 1) END AS waiting_hours,
+                    CASE WHEN d.verification_status = 'rejected' THEN NULLIF(de.comment,'') END AS note";
 
         $total = $this->db->int("SELECT COUNT(*) {$from} WHERE {$where}", $p);
         $rows = $this->db->select("{$select} {$from} WHERE {$where}{$order}" . $this->limit($page, $perPage), $p);
-        foreach ($rows as &$r) {
-            if (($r['rejection_reason'] ?? '') === null || $r['rejection_reason'] === '') {
-                $r['rejection_reason'] = null;
-            }
-        }
-        unset($r);
 
         $a = $this->db->selectOne(
-            "SELECT COUNT(*) AS n, SUM(fr.approval_status = 'approved') AS approved, SUM(fr.approval_status = 'rejected') AS rejected,
-                    SUM(fr.approval_status = 'changes_requested') AS changes, SUM(fr.status = 'pending_review') AS waiting,
-                    ROUND(AVG(CASE WHEN dl.created_at >= COALESCE(sl.created_at, fr.created_at) THEN TIMESTAMPDIFF(MINUTE, COALESCE(sl.created_at, fr.created_at), dl.created_at) / 60 END), 1) AS avg_hours,
-                    ROUND(MAX(CASE WHEN fr.status = 'pending_review' THEN TIMESTAMPDIFF(MINUTE, COALESCE(sl.created_at, fr.created_at), UTC_TIMESTAMP()) / 60 END), 1) AS oldest
+            "SELECT COUNT(*) AS n, COALESCE(SUM(d.verification_status = 'verified'),0) AS verified, COALESCE(SUM(d.verification_status = 'rejected'),0) AS rejected,
+                    COALESCE(SUM({$waiting}),0) AS waiting,
+                    ROUND(AVG(CASE WHEN {$decided} AND de.created_at >= d.created_at THEN TIMESTAMPDIFF(MINUTE, d.created_at, de.created_at) / 60 END), 1) AS avg_hours,
+                    ROUND(MAX(CASE WHEN {$waiting} THEN TIMESTAMPDIFF(MINUTE, d.created_at, UTC_TIMESTAMP()) / 60 END), 1) AS oldest
              {$from} WHERE {$where}",
             $p
         ) ?? [];
-        $decided = (int) ($a['approved'] ?? 0) + (int) ($a['rejected'] ?? 0);
+        $verified = (int) ($a['verified'] ?? 0);
+        $rejected = (int) ($a['rejected'] ?? 0);
 
         $byReviewer = $this->db->select(
-            "SELECT COALESCE(ru.email, 'Not recorded') AS reviewer, COUNT(*) AS decisions, SUM(fr.approval_status = 'approved') AS approved,
-                    SUM(fr.approval_status = 'rejected') AS rejected, SUM(fr.approval_status = 'changes_requested') AS changes
-             {$from} WHERE {$where} AND fr.approval_status <> 'pending' GROUP BY ru.email ORDER BY decisions DESC",
+            "SELECT COALESCE(du.email, 'Not recorded') AS reviewer, COUNT(*) AS decisions,
+                    COALESCE(SUM(d.verification_status = 'verified'),0) AS verified, COALESCE(SUM(d.verification_status = 'rejected'),0) AS rejected,
+                    COALESCE(SUM(CASE WHEN d.verification_status = 'verified' THEN d.amount_minor END),0) AS verified_minor
+             {$from} WHERE {$where} AND {$decided} GROUP BY du.email ORDER BY decisions DESC",
             $p
         );
 
         return [
-            'description' => 'How fundraiser pages were reviewed: decisions, who made them and how long they took.',
-            'basis'       => 'Dated by submission time. Drafts are left out unless chosen. Submission time, reviewer and decision time come from the audit log.',
+            'description' => 'How donations were verified: where they stand, who decided and how long it took.',
+            'basis'       => 'Dated by donation date. Legacy donations (from before review existed) are left out unless chosen. Reviewer and decision time come from the review log. Currency ' . $cur . '.',
             'summary'     => [
-                $this->count('Fundraisers in review history', (int) ($a['n'] ?? 0)),
-                $this->count('Waiting for review', (int) ($a['waiting'] ?? 0), isset($a['oldest']) && $a['oldest'] !== null ? 'oldest waiting ' . number_format((float) $a['oldest'] / 24, 1) . ' days' : ''),
-                $this->count('Approved', (int) ($a['approved'] ?? 0)),
-                $this->count('Rejected', (int) ($a['rejected'] ?? 0)),
-                $this->count('Changes requested', (int) ($a['changes'] ?? 0)),
-                $this->pct('Approval rate', $this->ratio((int) ($a['approved'] ?? 0), $decided), 'approved of approved + rejected'),
+                $this->count('Donations in view', (int) ($a['n'] ?? 0)),
+                $this->count('Awaiting verification', (int) ($a['waiting'] ?? 0), isset($a['oldest']) && $a['oldest'] !== null ? 'oldest waiting ' . number_format((float) $a['oldest'] / 24, 1) . ' days' : ''),
+                $this->count('Verified', $verified),
+                $this->count('Rejected', $rejected),
+                $this->pct('Verification rate', $this->ratio($verified, $verified + $rejected), 'verified of verified + rejected'),
                 ['label' => 'Average review time', 'value' => $a['avg_hours'] ?? null, 'kind' => 'hours', 'sub' => 'from submission to decision'],
             ],
             'columns'     => $columns,
@@ -1389,11 +1366,11 @@ final class ReportService
             'sort'        => $sortKey,
             'dir'         => $dir,
             'extra'       => [['title' => 'Decisions by reviewer', 'columns' => [
-                ['key' => 'reviewer', 'label' => 'Reviewer', 'w' => 5], ['key' => 'decisions', 'label' => 'Pages', 'type' => 'int', 'align' => 'right', 'w' => 1.4],
-                ['key' => 'approved', 'label' => 'Approved', 'type' => 'int', 'align' => 'right', 'w' => 1.5], ['key' => 'rejected', 'label' => 'Rejected', 'type' => 'int', 'align' => 'right', 'w' => 1.5],
-                ['key' => 'changes', 'label' => 'Changes requested', 'type' => 'int', 'align' => 'right', 'w' => 2],
-            ], 'rows' => $byReviewer]],
-            'notes'       => ['Pages reviewed before audit logging began, or approved directly in the database, show "—" for reviewer and times. Only the latest decision per fundraiser is shown.'],
+                ['key' => 'reviewer', 'label' => 'Reviewer', 'w' => 5], ['key' => 'decisions', 'label' => 'Donations', 'type' => 'int', 'align' => 'right', 'w' => 1.6],
+                ['key' => 'verified', 'label' => 'Verified', 'type' => 'int', 'align' => 'right', 'w' => 1.5], ['key' => 'rejected', 'label' => 'Rejected', 'type' => 'int', 'align' => 'right', 'w' => 1.5],
+                ['key' => 'verified_minor', 'label' => 'Verified amount', 'type' => 'money', 'align' => 'right', 'w' => 2.4],
+            ], 'rows' => $this->withCurrency($byReviewer, $cur)]],
+            'notes'       => ['Donations verified before review logging began show "—" for reviewer and times. Only the latest decision per donation is shown.'],
         ];
     }
 
@@ -1593,7 +1570,7 @@ final class ReportService
             $where .= ' AND (d.public_reference LIKE ' . $this->p($p, $like) . ' OR dn.name LIKE ' . $this->p($p, $like) . ' OR dn.email LIKE ' . $this->p($p, $like) . ')';
         }
         $from = "FROM donations d
-                 LEFT JOIN gateways g ON g.id = d.gateway_id LEFT JOIN fundraisers fr ON fr.id = d.fundraiser_id LEFT JOIN donors dn ON dn.id = d.donor_id
+                 LEFT JOIN gateways g ON g.id = d.gateway_id LEFT JOIN donation_purposes dpu ON dpu.id = d.purpose_id LEFT JOIN donors dn ON dn.id = d.donor_id
                  LEFT JOIN payment_transactions lt ON lt.id = (SELECT MAX(t.id) FROM payment_transactions t WHERE t.donation_id = d.id)
                  LEFT JOIN payment_refunds rf ON rf.id = (SELECT MAX(r.id) FROM payment_refunds r WHERE r.donation_id = d.id)
                  LEFT JOIN payment_refunds rc ON rc.id = (SELECT MAX(r.id) FROM payment_refunds r WHERE r.donation_id = d.id AND r.status='completed')
@@ -1605,7 +1582,7 @@ final class ReportService
             ['key' => 'receipt_number', 'label' => 'Receipt number', 'type' => 'code', 'w' => 2.2],
             ['key' => 'public_reference', 'label' => 'Donation', 'type' => 'code', 'sort' => 'public_reference', 'w' => 2.4, 'link' => 'donation'],
             ['key' => 'donor', 'label' => 'Donor', 'sort' => 'donor', 'w' => 2.6],
-            ['key' => 'fundraiser', 'label' => 'Fundraiser', 'w' => 3],
+            ['key' => 'purpose', 'label' => 'Purpose', 'w' => 3],
             ['key' => 'gateway', 'label' => 'Gateway', 'sort' => 'gateway', 'w' => 1.7],
             ['key' => 'status', 'label' => 'Outcome', 'type' => 'status', 'sort' => 'status', 'w' => 1.6],
             ['key' => 'amount_minor', 'label' => 'Original amount', 'type' => 'money', 'align' => 'right', 'sort' => 'amount_minor', 'w' => 2],
@@ -1620,7 +1597,7 @@ final class ReportService
         $select = "SELECT d.id, d.public_reference, d.receipt_number, lt.provider_transaction_id AS transaction_id,
                     rc.amount_minor AS refund_amount_minor, rc.completed_at AS refund_date, d.status, d.amount_minor, d.anonymous, {$eventExpr} AS event_at,
                     CASE WHEN d.anonymous = 1 THEN 'Anonymous' ELSE COALESCE(dn.name, '—') END AS donor,
-                    COALESCE(fr.title, 'General fund') AS fundraiser, COALESCE(g.name, 'Unknown') AS gateway,
+                    COALESCE(dpu.name, 'General fund') AS purpose, COALESCE(g.name, 'Unknown') AS gateway,
                     TRIM(CONCAT(COALESCE(lt.provider_response_code,''), ' ', COALESCE(lt.provider_response_description, rf.provider_response_description, ''))) AS reason,
                     rf.status AS refund_status, ru.email AS refunded_by";
         $wrap = "SELECT * FROM ({$select} {$from} WHERE {$where}) w";
@@ -1920,7 +1897,7 @@ final class ReportService
             $like = $this->like($f['q']);
             $where .= ' AND (d.public_reference LIKE ' . $this->p($p, $like) . ' OR d.receipt_number LIKE ' . $this->p($p, $like) . ' OR d.recipient_name LIKE ' . $this->p($p, $like) . ' OR dn.name LIKE ' . $this->p($p, $like) . ' OR dn.email LIKE ' . $this->p($p, $like) . ')';
         }
-        $from = "FROM donations d LEFT JOIN donors dn ON dn.id = d.donor_id LEFT JOIN gateways g ON g.id = d.gateway_id LEFT JOIN fundraisers fr ON fr.id = d.fundraiser_id
+        $from = "FROM donations d LEFT JOIN donors dn ON dn.id = d.donor_id LEFT JOIN gateways g ON g.id = d.gateway_id LEFT JOIN donation_purposes dpu ON dpu.id = d.purpose_id
                  LEFT JOIN email_jobs ej ON ej.dedupe_key = CONCAT('donation.receipt:', d.id)";
 
         $columns = [
@@ -1931,7 +1908,7 @@ final class ReportService
             ['key' => 'verification_status', 'label' => 'Verification', 'type' => 'status', 'w' => 1.8],
             ['key' => 'certificate_status', 'label' => 'Certificate', 'type' => 'status', 'w' => 1.8],
             ['key' => 'email', 'label' => 'Sent to', 'sort' => 'email', 'w' => 3.6],
-            ['key' => 'fundraiser', 'label' => 'Fundraiser', 'w' => 3],
+            ['key' => 'purpose', 'label' => 'Purpose', 'w' => 3],
             ['key' => 'gateway', 'label' => 'Gateway', 'sort' => 'gateway', 'w' => 1.6],
             ['key' => 'amount_minor', 'label' => 'Amount', 'type' => 'money', 'align' => 'right', 'sort' => 'd.amount_minor', 'w' => 2],
             ['key' => 'donation_status', 'label' => 'Donation', 'type' => 'status', 'w' => 1.6],
@@ -1946,7 +1923,7 @@ final class ReportService
             "SELECT d.id, d.public_reference, d.receipt_number, d.certificate_status, d.verification_status,
                     COALESCE(NULLIF(d.recipient_name,''),dn.name,'—') AS recipient, d.amount_minor, d.status AS donation_status, d.receipt_email_status AS receipt_status,
                     COALESCE(d.completed_at, d.created_at) AS confirmed_at, COALESCE(dn.name,'—') AS donor, COALESCE(dn.email,'—') AS email,
-                    COALESCE(fr.title,'General fund') AS fundraiser, COALESCE(g.name,'Unknown') AS gateway, ej.sent_at AS sent_at, ej.last_error AS last_error
+                    COALESCE(dpu.name,'General fund') AS purpose, COALESCE(g.name,'Unknown') AS gateway, ej.sent_at AS sent_at, ej.last_error AS last_error
              {$from} WHERE {$where}{$order}" . $this->limit($page, $perPage),
             $p
         );

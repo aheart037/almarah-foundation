@@ -110,9 +110,12 @@ final class FinanceController extends Controller
             return $this->redirect('/admin/finance');
         }
 
+        $list = $this->finance->runDonations($run, max(1, (int) $request->input('page', 1)));
+
         return $this->render('admin/finance/run', [
             'pageTitle' => 'Reconciliation #' . $run['id'],
             'run'       => $run,
+            'donations' => $list['rows'], 'donationTotal' => $list['total'], 'page' => $list['page'], 'lastPage' => $list['lastPage'],
             'items'     => $this->finance->items((int) $id),
             'issues'    => FinanceService::ISSUES,
             'summary'   => json_decode((string) ($run['summary_json'] ?? '{}'), true) ?: [],

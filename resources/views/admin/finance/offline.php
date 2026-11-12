@@ -111,8 +111,43 @@
     </div>
   </div>
 
-  <div class="field"><label>Bank / deposit slip<span class="req">*</span> (PNG or JPG, 2 MB maximum)
-    <input type="file" name="payment_proof" accept=".jpg,.jpeg,.png" required></label></div>
+  <div class="field"><label for="slip_file">Bank / deposit slip<span class="req">*</span> (PNG or JPG, 2 MB maximum)</label>
+    <div id="slipDrop" style="border:2px dashed #cdb3c0;border-radius:12px;padding:18px 14px;text-align:center;background:#fdf8fa;transition:all .15s">
+      <div style="font-weight:600">Drag &amp; drop the slip here, or choose a file</div>
+      <input type="file" id="slip_file" name="payment_proof" accept=".jpg,.jpeg,.png" required style="margin-top:8px;max-width:100%">
+      <div id="slipPrev" style="display:none;align-items:center;gap:12px;margin-top:12px;justify-content:center">
+        <img id="slipThumb" alt="Slip preview" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #eadde3">
+        <span id="slipName" class="muted" style="font-size:13px"></span>
+      </div>
+      <div id="slipMsg" role="status" style="margin-top:8px;font-size:13px;min-height:1em"></div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var drop = document.getElementById('slipDrop'), input = document.getElementById('slip_file'), msg = document.getElementById('slipMsg');
+    if (!drop || !input) return;
+    function say(t, bad) { msg.textContent = t; msg.style.color = bad ? '#c0392b' : '#1f8a4c'; }
+    function show() {
+      var f = input.files[0], prev = document.getElementById('slipPrev');
+      if (!f) { prev.style.display = 'none'; return; }
+      if (!/^image\/(jpeg|png)$/.test(f.type)) { say('Please choose a PNG or JPG image.', true); input.value = ''; prev.style.display = 'none'; return; }
+      if (f.size > 2 * 1024 * 1024) { say('This image is larger than 2 MB. Please use a smaller file.', true); input.value = ''; prev.style.display = 'none'; return; }
+      document.getElementById('slipThumb').src = URL.createObjectURL(f);
+      document.getElementById('slipName').textContent = f.name + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' KB)';
+      prev.style.display = 'flex'; say('Slip ready.', false);
+    }
+    function hl(on) { drop.style.borderColor = on ? '#a92d63' : '#cdb3c0'; drop.style.borderStyle = on ? 'solid' : 'dashed'; drop.style.background = on ? '#fbe9f1' : '#fdf8fa'; }
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); hl(true); }); });
+    ['dragleave', 'dragend'].forEach(function (ev) { drop.addEventListener(ev, function () { hl(false); }); });
+    drop.addEventListener('drop', function (e) {
+      e.preventDefault(); hl(false);
+      var files = e.dataTransfer && e.dataTransfer.files; if (!files || !files.length) return;
+      if (!window.DataTransfer) { say('Your browser cannot accept dropped files. Please use the file chooser.', true); return; }
+      var dt = new DataTransfer(); dt.items.add(files[0]); input.files = dt.files; show();
+    });
+    input.addEventListener('change', show);
+  })();
+  </script>
   <?php require __DIR__ . '/../../partials/donation-extra-fields.php'; ?>
   <p>Receipt email is available only after final verification.</p>
 

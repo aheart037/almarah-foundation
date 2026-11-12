@@ -35,13 +35,13 @@ if ($finance !== null) {
     $kpis[] = ['tone' => 'rose',   'icon' => 'gift',      'label' => 'Verified · last 30 days', 'v' => $mon($trendMinor), 'sub' => number_format($trendCount) . ' gift' . ($trendCount === 1 ? '' : 's'), 'delta' => $delta, 'spark' => dv31_spark(dv31_series($trendRows, 'minor')), 'href' => 'admin/donations'];
     $kpis[] = ['tone' => 'gold',   'icon' => 'calendar',  'label' => 'Verified · this month', 'v' => $mon(dv31_int($finance['month']['minor'] ?? 0)), 'sub' => number_format(dv31_int($finance['month']['cnt'] ?? 0)) . ' donations', 'href' => 'admin/donations'];
     $kpis[] = ['tone' => 'green',  'icon' => 'shield',    'label' => 'Verified donations', 'v' => $mon(dv31_int($finance['verified']['minor'] ?? 0)), 'sub' => number_format(dv31_int($finance['verified']['cnt'] ?? 0)) . ' completed, staff-verified', 'href' => 'admin/donations'];
-    $kpis[] = ['tone' => 'amber',  'icon' => 'hourglass', 'label' => 'Pending verification', 'v' => $num($awaiting), 'sub' => 'Gifts awaiting staff review', 'href' => 'admin/ledger?status=pending_verification', 'alert' => $awaiting > 0];
+    $kpis[] = ['tone' => 'amber',  'icon' => 'hourglass', 'label' => 'Pending verification', 'v' => $num($awaiting), 'sub' => 'Gifts awaiting staff review', 'href' => 'admin/donations', 'alert' => $awaiting > 0];
     $kpis[] = ['tone' => 'violet', 'icon' => 'users',     'label' => 'Donors', 'v' => $num(dv31_int($finance['donors'] ?? 0)), 'sub' => 'Donor records', 'href' => 'admin/donors'];
     $kpis[] = ['tone' => 'slate',  'icon' => 'alert',     'label' => 'Awaiting payment', 'v' => $num($pendingPay), 'sub' => $failed . ' failed in 30 days', 'href' => 'admin/donations'];
 }
 if ($campaignStats !== null) {
     $kpis[] = ['tone' => 'teal', 'icon' => 'flag',  'label' => 'Active campaigns', 'v' => $num(dv31_int($campaignStats['active'] ?? 0)), 'sub' => 'Within scheduled dates', 'href' => 'admin/campaigns'];
-    $kpis[] = ['tone' => 'rose', 'icon' => 'hands', 'label' => 'Fundraisers', 'v' => $num(dv31_int($campaignStats['fundraisers'] ?? 0)), 'sub' => 'Published and approved', 'href' => 'admin/fundraisers'];
+    $kpis[] = ['tone' => 'rose', 'icon' => 'hands', 'label' => 'Donation purposes', 'v' => $num(dv31_int($campaignStats['purposes'] ?? 0)), 'sub' => 'Active on the donation form', 'href' => 'admin/reports/purposes'];
 }
 if ($inbox !== null) {
     if (isset($inbox['boxes']['volunteers'])) {
@@ -58,7 +58,7 @@ if ($content !== null) {
 
 /* ---- Attention items ---- */
 $attention = [];
-if ($finance !== null && $awaiting > 0) { $attention[] = ['n' => $awaiting, 't' => 'pending verification', 'h' => 'admin/ledger?status=pending_verification', 'tone' => 'amber']; }
+if ($finance !== null && $awaiting > 0) { $attention[] = ['n' => $awaiting, 't' => 'pending verification', 'h' => 'admin/donations', 'tone' => 'amber']; }
 if ($finance !== null && $failed > 0)   { $attention[] = ['n' => $failed, 't' => 'failed payments (30 days)', 'h' => 'admin/donations', 'tone' => 'red']; }
 foreach ((array) ($inbox['boxes'] ?? []) as $key => $box) {
     if ($key === 'newsletter' || (int) ($box['open'] ?? 0) === 0) { continue; }

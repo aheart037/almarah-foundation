@@ -1,7 +1,7 @@
 <?php
 /**
- * One reconciliation run with its discrepancy items.
- * @var array $run @var array $items @var array $issues @var array $summary
+ * One reconciliation run: dashboard cards, every donation in the period, and the discrepancy items.
+ * @var array $run @var array $items @var array $issues @var array $summary @var array $donations @var int $donationTotal @var int $page @var int $lastPage
  */
 $open = count(array_filter($items, static fn ($i) => $i['resolved_at'] === null));
 ?>
@@ -23,6 +23,50 @@ $open = count(array_filter($items, static fn ($i) => $i['resolved_at'] === null)
   <div class="stat-card"><div class="k">Pending PKR</div><div class="v"><?= (int) $run['pending_count'] ?></div><div class="d"><?= e(money((int) $run['pending_minor'])) ?> · <?= (int) $run['failed_count'] ?> failed</div></div>
   <div class="stat-card"><div class="k">Discrepancies</div><div class="v"><?= (int) $run['mismatch_count'] ?></div><div class="d"><?= $open ?> still open</div></div>
 </div>
+
+<?php
+$donations = $donations ?? []; $donationTotal = (int) ($donationTotal ?? count($donations)); $page = (int) ($page ?? 1); $lastPage = (int) ($lastPage ?? 1);
+$perPage = 100; $from = $donationTotal === 0 ? 0 : ($page - 1) * $perPage + 1; $to = ($page - 1) * $perPage + count($donations);
+?>
+<section class="panel" id="run-donations">
+  <h2>All donations in this period</h2>
+  <p class="muted" style="margin-top:-4px">
+    <?= $donationTotal === 0 ? 'No donations were created in this period.' : 'Showing ' . number_format($from) . '–' . number_format($to) . ' of ' . number_format($donationTotal) . ' donation' . ($donationTotal === 1 ? '' : 's') . ' created between ' . e(substr((string) $run['period_start'], 0, 10)) . ' and ' . e(substr((string) $run['period_end'], 0, 10)) . ' (' . e((string) ($run['gateway_name'] ?? 'all methods')) . ').' ?>
+  </p>
+  <?php if ($donations !== []): ?>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>#</th><th>Date</th><th style="min-width:150px">Donation</th><th>Method</th><th>Reference</th><th class="num">Amount</th><th>Payment</th><th>Verification</th><th>Reconciliation</th></tr></thead>
+      <tbody>
+      <?php foreach ($donations as $n => $d):
+        $method = !empty($d['gateway_name']) ? (string) $d['gateway_name'] : ucwords(str_replace('_', ' ', (string) ($d['payment_method'] ?: ($d['source'] ?: 'offline'))));
+        $ref = trim((string) ($d['txn_ref'] ?? '')) !== '' ? (string) $d['txn_ref'] : (string) ($d['bank_reference'] ?? '');
+      ?>
+        <tr>
+          <td class="muted"><?= (int) ($from + $n) ?></td>
+          <td style="white-space:nowrap"><?= e(dt((string) $d['created_at'], 'j M Y')) ?><div class="muted" style="font-size:12px"><?= e(dt((string) $d['created_at'], 'H:i')) ?> UTC<?= !empty($d['transaction_at']) && substr((string) $d['transaction_at'], 0, 10) !== substr((string) $d['created_at'], 0, 10) ? ' · paid ' . e(dt((string) $d['transaction_at'], 'j M')) : '' ?></div></td>
+          <td>
+            <a class="mono" href="<?= e(base_url('admin/donations/' . (int) $d['id'])) ?>"><?= e((string) $d['public_reference']) ?></a>
+            <div class="muted" style="font-size:12px"><?= e((string) ($d['donor_name'] ?? 'Anonymous')) ?></div>
+          </td>
+          <td><?= e($method) ?></td>
+          <td class="mono" style="font-size:12px;word-break:break-all"><?= $ref !== '' ? e($ref) : '&mdash;' ?></td>
+          <td class="num" style="white-space:nowrap"><?= e(money((int) $d['amount_minor'], (string) $d['currency'])) ?></td>
+          <td><span class="<?= e(status_badge_class((string) $d['status'])) ?>"><?= e((string) $d['status']) ?></span></td>
+          <td><span class="<?= e(status_badge_class((string) $d['verification_status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $d['verification_status']))) ?></span></td>
+          <td>
+            <?php if ((int) $d['open_flags'] > 0): ?><span class="badge badge-amber">Discrepancy</span>
+            <?php elseif ((int) $d['flag_count'] > 0): ?><span class="badge badge-green">Resolved</span>
+            <?php else: ?><span class="muted">Matched</span><?php endif; ?>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+  <?php $total = $donationTotal; $query = []; require __DIR__ . '/../../partials/pagination.php'; ?>
+  <?php endif; ?>
+</section>
 
 <?php if (!empty($summary['issues'])): ?>
 <section class="panel">
