@@ -9,12 +9,14 @@ use App\Core\Database;
 /**
  * Central donation ledger (read-only). One definition of "confirmed":
  *  - a bank-slip / offline donation verified by finance (verification_status = verified, status = completed), or
- *  - a gateway donation the gateway has completed (gateways are treated as verified).
+ *  - online (gateway) donations follow the same rule: paid first, then verified by finance.
  * Everything else (pending, rejected, legacy/unreviewed, refunded, failed) never counts toward confirmed totals.
  */
 final class DonationLedgerService
 {
-    public const CONFIRMED = "(d.status = 'completed' AND (d.verification_status = 'verified' OR d.gateway_id IS NOT NULL))";
+    public const CONFIRMED = "(d.status = 'completed' AND d.verification_status = 'verified')";
+    /** Waiting for finance: reported transfers, and online payments the gateway has already completed. Unpaid gateway attempts are not queued. */
+    public const AWAITING = "(d.verification_status = 'submitted' AND (d.gateway_id IS NULL OR d.status = 'completed'))";
     public const LEDGER_STATUSES = ['pending_verification', 'verified', 'rejected', 'unreviewed', 'gateway_unconfirmed'];
 
     public function __construct(private Database $db)
@@ -25,8 +27,8 @@ final class DonationLedgerService
     {
         return "CASE WHEN " . self::CONFIRMED . " THEN 'verified'
                      WHEN d.verification_status = 'rejected' THEN 'rejected'
-                     WHEN d.gateway_id IS NOT NULL THEN 'gateway_unconfirmed'
-                     WHEN d.verification_status = 'submitted' THEN 'pending_verification'
+                     WHEN d.gateway_id IS NOT NULL AND d.status <> 'completed' THEN 'gateway_unconfirmed'
+                     WHEN " . self::AWAITING . " THEN 'pending_verification'
                      WHEN d.verification_status = 'verified' THEN 'verified'
                      ELSE 'unreviewed' END";
     }
@@ -102,7 +104,7 @@ final class DonationLedgerService
         $pending = [];
         foreach ($this->db->select(
             "SELECT d.currency, (" . self::CONFIRMED . ") AS ok, COALESCE(SUM(d.amount_minor),0) AS total
-             " . self::FROM . " WHERE {$where} AND (" . self::CONFIRMED . " OR d.verification_status = 'submitted') GROUP BY d.currency, ok",
+             " . self::FROM . " WHERE {$where} AND (" . self::CONFIRMED . " OR " . self::AWAITING . ") GROUP BY d.currency, ok",
             $params
         ) as $r) {
             if ((int) $r['ok'] === 1) $confirmed[(string) $r['currency']] = (int) $r['total'];

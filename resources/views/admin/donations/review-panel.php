@@ -5,8 +5,9 @@
  */
 $vs = (string) ($donation['verification_status'] ?? 'legacy');
 $isGateway = $donation['gateway_id'] !== null;
-$awaiting = !$isGateway && in_array($vs, ['submitted', 'legacy'], true) && !in_array((string) $donation['status'], ['failed', 'cancelled', 'refunded', 'abandoned'], true);
-$label = $isGateway ? 'Confirmed by gateway' : ['submitted' => 'Pending verification', 'verified' => 'Verified', 'rejected' => 'Rejected', 'legacy' => 'Not reviewed (legacy)'][$vs] ?? $vs;
+$awaiting = in_array($vs, ['submitted', 'legacy'], true) && !in_array((string) $donation['status'], ['failed', 'cancelled', 'refunded', 'abandoned'], true)
+    && (!$isGateway || (string) $donation['status'] === 'completed');
+$label = $isGateway && $vs === 'submitted' && (string) $donation['status'] !== 'completed' ? 'Awaiting gateway payment' : ['submitted' => 'Pending verification', 'verified' => 'Verified', 'rejected' => 'Rejected', 'legacy' => 'Not reviewed (legacy)'][$vs] ?? $vs;
 ?>
 <section class="panel" id="verification">
   <h2>Verification</h2>

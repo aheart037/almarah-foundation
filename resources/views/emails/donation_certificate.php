@@ -9,7 +9,7 @@ $heading = (string) ($heading ?? 'Your tax exemption certificate');
 $greeting = $name !== '' ? 'Dear ' . $name . ',' : 'Hello,';
 ?>
 <?= email_heading($heading, 'Tax exemption certificate') ?>
-<?= email_paragraph($greeting . ' thank you for your generous donation. Your donation has been verified by our finance team and your tax exemption certificate is attached to this email as a PDF.') ?>
+<?= email_paragraph($greeting . ' thank you for your generous donation. Your donation has been verified by our finance team and your tax exemption certificate is attached to this email as a PDF, followed by our supporting registration documents (FBR non-profit approval, Shariah approval and Punjab Charity Commission registration).') ?>
 <?= email_amount('Your verified donation', (string) ($amount ?? '')) ?>
 <?= email_rows([
     'Certificate number' => (string) ($certificate_number ?? ''),

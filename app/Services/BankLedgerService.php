@@ -40,8 +40,8 @@ final class BankLedgerService
                     b.account_title, b.account_number, d.currency,
                     SUM(CASE WHEN {$c} THEN 1 ELSE 0 END) AS confirmed_count,
                     COALESCE(SUM(CASE WHEN {$c} THEN d.amount_minor ELSE 0 END), 0) AS confirmed_minor,
-                    SUM(CASE WHEN NOT {$c} AND d.verification_status = 'submitted' THEN 1 ELSE 0 END) AS pending_count,
-                    COALESCE(SUM(CASE WHEN NOT {$c} AND d.verification_status = 'submitted' THEN d.amount_minor ELSE 0 END), 0) AS pending_minor,
+                    SUM(CASE WHEN NOT {$c} AND " . DonationLedgerService::AWAITING . " THEN 1 ELSE 0 END) AS pending_count,
+                    COALESCE(SUM(CASE WHEN NOT {$c} AND " . DonationLedgerService::AWAITING . " THEN d.amount_minor ELSE 0 END), 0) AS pending_minor,
                     SUM(CASE WHEN d.verification_status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count,
                     MAX(CASE WHEN {$c} THEN COALESCE(d.transaction_at, d.created_at) END) AS last_confirmed_at
              FROM donations d LEFT JOIN bank_accounts b ON b.id = d.bank_account_id

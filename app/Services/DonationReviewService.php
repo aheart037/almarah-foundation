@@ -250,7 +250,8 @@ final class DonationReviewService
         $final = $this->db->transaction(function () use ($id, $actor, $roles, $decision, $comment, $stages): bool {
             $d = $this->db->selectOne('SELECT * FROM donations WHERE id = :id FOR UPDATE', ['id' => $id]);
             if (!$d || in_array($d['status'], ['failed', 'cancelled', 'refunded', 'abandoned'], true)) throw new InvalidArgumentException('Donation cannot be reviewed in its current payment state.');
-            if ($d['gateway_id'] !== null) throw new InvalidArgumentException('Gateway donations are confirmed by the payment gateway and are not reviewed manually.');
+            // Online (gateway) donations are reviewed exactly like transfers, but only after the gateway has confirmed the payment.
+            if ($d['gateway_id'] !== null && $d['status'] !== 'completed') throw new InvalidArgumentException('The online payment has not been completed yet, so it cannot be verified.');
             $keys = array_keys($stages);
             $position = array_search((string) $d['verification_status'], $keys, true);
             $awaiting = in_array($d['verification_status'], ['submitted', 'legacy'], true);

@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 require_once __DIR__ . '/../Support/Pdf/fpdf.php';
+require_once __DIR__ . '/../Support/Pdf/PdfAppender.php';
+
+use App\Support\Pdf\PdfAppender;
+use RuntimeException;
 
 /**
- * Renders the donation tax exemption certificate (A4 landscape) with the bundled FPDF.
+ * Renders the donation tax exemption certificate (A4 landscape) with the bundled FPDF, then appends the foundation's supporting documents (static PDF pages).
  * Every legal/registration value is supplied by the caller from stored settings; nothing is hard-coded here.
  * FPDF core fonts cover Western European text only; other scripts in a donor name print as "?".
  */
@@ -19,7 +23,7 @@ final class CertificatePdfService
     private const MUTED = [110, 100, 105];
 
     /**
-     * @param array{donor_name:string,amount:string,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,ntn:string,approval_text:string,valid_from:string,valid_until:string,signatory_name:string,signatory_title:string,logo:?string,compress?:bool} $c
+     * @param array{donor_name:string,amount:string,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,ntn:string,approval_text:string,valid_from:string,valid_until:string,signatory_name:string,signatory_title:string,logo:?string,signature?:?string,appendix?:?string,compress?:bool} $c
      */
     public function render(array $c): string
     {
@@ -59,7 +63,7 @@ final class CertificatePdfService
         $pdf->Cell(277, 5, $pdf->t($c['org_address'] . '  |  NTN / Registration No. ' . $c['ntn']), 0, 1, 'C');
 
         // Title
-        $pdf->Ln(4);
+        $pdf->Ln(2);
         $pdf->SetFont('Helvetica', 'B', 30);
         $pdf->SetTextColor(...self::DARK);
         $pdf->Cell(277, 14, $pdf->t('Tax Exemption Certificate'), 0, 1, 'C');
@@ -67,7 +71,7 @@ final class CertificatePdfService
         $pdf->Rect(128.5, $pdf->GetY() + 1, 40, 1, 'F');
 
         // Body
-        $pdf->Ln(8);
+        $pdf->Ln(5);
         $pdf->SetFont('Helvetica', '', 11);
         $pdf->SetTextColor(...self::MUTED);
         $pdf->Cell(277, 6, $pdf->t('This is to certify that'), 0, 1, 'C');
@@ -86,7 +90,7 @@ final class CertificatePdfService
         $pdf->Cell(277, 11, $pdf->t($c['amount']), 0, 1, 'C');
 
         // Details
-        $pdf->Ln(3);
+        $pdf->Ln(2);
         $pdf->SetFont('Helvetica', '', 9.5);
         $y = $pdf->GetY();
         $cols = [
@@ -105,15 +109,32 @@ final class CertificatePdfService
             $pdf->Cell(64, 6, $pdf->t($value), 0, 0, 'L');
         }
 
+        // Thank-you lines
+        $pdf->SetXY(25, $y + 15);
+        $pdf->SetFont('Helvetica', 'BI', 11.5);
+        $pdf->SetTextColor(...self::WINE);
+        $pdf->Cell(247, 6, $pdf->t('Thank you for your generous support. Your kindness helps us feed the hungry, parent the orphan and educate Pakistan.'), 0, 2, 'C');
+        $pdf->SetFont('Helvetica', 'I', 10.5);
+        $pdf->SetTextColor(...self::MUTED);
+        $pdf->Cell(247, 6, $pdf->t('We are deeply grateful for your trust and belief in our cause.'), 0, 2, 'C');
+
         // Tax approval statement (facts as stored in settings only)
-        $pdf->SetXY(25, $y + 17);
+        $pdf->SetXY(25, $y + 30);
         $pdf->SetFont('Helvetica', '', 9);
         $pdf->SetTextColor(...self::MUTED);
         $statement = $c['approval_text'] . '. NTN ' . $c['ntn'] . '. Approval valid from '
             . $c['valid_from'] . ' to ' . $c['valid_until'] . '.';
         $pdf->MultiCell(247, 4.6, $pdf->t($statement), 0, 'C');
 
-        // Signature
+        // Signature (image sits on the line)
+        $signature = $c['signature'] ?? null;
+        if ($signature !== null && is_file($signature)) {
+            try {
+                $pdf->Image($signature, 131.5, 157.5, 34, 0);
+            } catch (\Throwable) {
+                // unreadable image: the printed name below still identifies the signatory
+            }
+        }
         $pdf->SetDrawColor(...self::MUTED);
         $pdf->SetLineWidth(0.3);
         $pdf->Line(112, 176, 185, 176);
@@ -129,7 +150,18 @@ final class CertificatePdfService
         $pdf->SetFont('Helvetica', '', 7.5);
         $pdf->Cell(267, 4, $pdf->t('Computer-generated certificate. Quote the certificate number above for any verification request.'), 0, 0, 'C');
 
-        return $pdf->Output('S');
+        $certificate = $pdf->Output('S');
+
+        // Supporting documents follow the certificate, in their original order and layout.
+        $appendix = $c['appendix'] ?? null;
+        if ($appendix === null) {
+            return $certificate;
+        }
+        $extra = is_file($appendix) ? file_get_contents($appendix) : false;
+        if ($extra === false || $extra === '') {
+            throw new RuntimeException('The certificate supporting documents file is missing.');
+        }
+        return PdfAppender::append($certificate, $extra);
     }
 }
 

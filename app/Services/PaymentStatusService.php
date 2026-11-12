@@ -157,8 +157,8 @@ final class PaymentStatusService
                 $this->sendReceipt($confirmed, (string) ($transaction['gateway_code'] ?? '')));
             $this->attemptNotification('fundraiser_owner', $confirmed, fn () =>
                 $this->notifyFundraiserOwner($confirmed));
-            $this->attemptNotification('certificate', $confirmed, fn () =>
-                \app(DonationCertificateService::class)->issue((int) $confirmed['id']));
+            // The tax exemption certificate is NOT issued here: it follows finance verification
+            // (DonationReviewController), exactly like bank-transfer / offline donations.
 
             return ['changed' => true, 'status' => 'completed', 'reason' => 'verified_completed'];
         }

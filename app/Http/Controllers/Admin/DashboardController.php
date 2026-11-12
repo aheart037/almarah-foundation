@@ -88,7 +88,8 @@ final class DashboardController extends Controller
                     ) ?? ['cnt' => 0, 'minor' => 0],
                     'awaitingReview' => $this->db->int(
                         "SELECT COUNT(*) FROM donations WHERE verification_status IN ('submitted', 'initial_review', 'verification_officer', 'finance_manager')
-                          AND status NOT IN ('failed','cancelled','refunded')"
+                          AND status NOT IN ('failed','cancelled','refunded','abandoned')
+                          AND (gateway_id IS NULL OR status = 'completed')"
                     ),
                     'donors'        => $this->db->int('SELECT COUNT(*) FROM donors'),
                     'pending'       => $this->db->int("SELECT COUNT(*) FROM donations WHERE status IN ('pending','processing')"),

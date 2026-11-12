@@ -274,7 +274,7 @@ final class Mailer
             'gateway'          => $gatewayLabel,
             'status'           => 'Completed',
             'receipt_date'     => gmdate('j F Y'),
-            'body'             => 'Your donation has been received. This email is your official receipt — please keep it for your records.',
+            'body'             => 'Thank you — your online payment was successful and your donation has been received. Our finance team will now verify it, and your tax exemption certificate will be emailed to you as soon as the verification is complete. Please keep this email for your records.',
             'cta_label'        => 'View the fundraiser',
             'cta_url'          => $donation['_fundraiser_url'] ?? base_url('fundraisers'),
         ], 'donation.receipt:' . $donation['id'] . ($resendKey ? ':' . $resendKey : ''));

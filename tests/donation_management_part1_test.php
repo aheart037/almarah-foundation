@@ -96,7 +96,8 @@ ok(throws(fn () => $review->decide($offline, 12, $fin, 'reject', ''), 'reason'),
 ok(throws(fn () => $review->decide($offline, 12, $fin, 'reject', 'abc'), 'reason'), 'rejection reason needs 5+ chars');
 ok(throws(fn () => $review->decide($offline, 12, ['admin'], 'approve', ''), 'role'), 'non-finance role cannot verify');
 ok(throws(fn () => $review->decide($offline, 11, $fin, 'approve', ''), 'own donation'), 'recorder cannot verify own entry');
-ok(throws(fn () => $review->decide($gwDone, 12, $fin, 'approve', ''), 'Gateway'), 'gateway donations are not reviewed manually');
+ok(throws(fn () => $review->decide($gwOpen, 12, $fin, 'approve', ''), 'not been completed'), 'an unpaid online donation cannot be verified');
+ok($review->decide($gwDone, 12, $fin, 'approve', 'Gateway payment checked') === true, 'a paid online donation is verified by finance like a transfer');
 ok(count($review->possibleDuplicates($database->selectOne('SELECT * FROM donations WHERE id=:i', ['i' => $online]))) === 1, 'duplicate reference warns reviewer');
 ok($review->decide($offline, 12, $fin, 'approve', 'Matches statement') === true, 'finance verifies');
 $d = $database->selectOne('SELECT * FROM donations WHERE id=:i', ['i' => $offline]);
@@ -121,7 +122,7 @@ ok($review->decide($usd, 13, $fin, 'approve', 'USD ok') === true, 'second financ
 // --- 4. ledger ------------------------------------------------------------------------------
 $all = $ledger->search([], 1);
 ok($all['total'] === 7, 'ledger lists every record (nothing hidden)');
-ok(($all['confirmed']['PKR'] ?? 0) === 500000 + 999999 + 700000, 'confirmed PKR = verified offline + gateway completed only');
+ok(($all['confirmed']['PKR'] ?? 0) === 500000 + 999999 + 700000, 'confirmed PKR = verified offline + finance-verified online');
 ok(($all['confirmed']['USD'] ?? 0) === 10000, 'confirmed totals are per currency');
 ok(($all['pending']['PKR'] ?? 0) === 300000, 'pending (cash) shown separately, not confirmed');
 $by = array_column($all['rows'], 'ledger_status', 'id');

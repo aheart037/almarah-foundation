@@ -7,18 +7,19 @@
 $email = (string) ($user['email'] ?? '');
 $tick  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
 ?>
-<link rel="stylesheet" href="<?= e(base_url('assets/auth-pages.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/auth-foundation.css')) ?>">
 <section class="auth-shell auth-shell--split">
   <div class="auth-stage">
     <div class="auth-card--split">
 
       <aside class="auth-art" aria-label="Why we verify email addresses">
         <div class="art-copy">
+          <p class="art-eyebrow">Almarah Foundation</p>
           <h2>Verify your email address</h2>
-          <p>It takes one click, and it keeps your account and your supporters' details safe.</p>
+          <p>It takes one click, and it keeps your account and our donors’ details safe.</p>
           <ul class="checkline">
-            <li><?= $tick ?><span>Donation receipts and payment updates reach you</span></li>
-            <li><?= $tick ?><span>You hear when your fundraiser is approved</span></li>
+            <li><?= $tick ?><span>Account and security notices reach you</span></li>
+            <li><?= $tick ?><span>You can recover your account if you forget your password</span></li>
             <li><?= $tick ?><span>Nobody else can take over your account</span></li>
           </ul>
         </div>
@@ -50,7 +51,7 @@ $tick  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-widt
 
           <div class="divider-or"><span>or</span></div>
           <p class="auth-alt">
-            <a href="<?= e(base_url('dashboard')) ?>">Continue to your dashboard</a><br>
+            <a href="<?= e(base_url('dashboard')) ?>">Continue to your account</a><br>
             <span class="form-help">You can keep working while you wait.</span>
           </p>
         </div>

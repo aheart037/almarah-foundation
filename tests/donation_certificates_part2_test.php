@@ -178,7 +178,9 @@ $review->decide($o5, 22, $fin, 'approve', 'ok');
 $svc()->issue($o5);
 ok($svc()->find($o5)['status'] === 'generated' && $svc()->find($o5)['email_status'] === 'skipped', 'invalid donor email: certificate kept, email skipped');
 $gw = mk($database, ['gateway_id' => 1, 'verification_status' => 'legacy', 'status' => 'completed', 'recorded_by' => null, 'bank_account_id' => null]);
-ok($svc()->issue($gw)['ok'] === true, 'gateway-confirmed donation is certifiable');
+ok($svc()->issue($gw)['ok'] === false, 'paid online donation is NOT certified before finance verification');
+$review->decide($gw, 22, $fin, 'approve', 'Gateway payment checked');
+ok($svc()->issue($gw)['ok'] === true, 'online donation is certified after finance verification');
 
 // --- 8. access control (logged-in staff) ------------------------------------------------------------------
 $router = $app->make(Router::class);

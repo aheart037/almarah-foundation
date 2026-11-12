@@ -10,13 +10,14 @@ $eye = '<svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentCol
      . '<svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
 $tick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
 ?>
-<link rel="stylesheet" href="<?= e(base_url('assets/auth-pages.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/auth-foundation.css')) ?>">
 <section class="auth-shell auth-shell--split">
   <div class="auth-stage">
     <div class="auth-card--split">
 
       <aside class="auth-art" aria-label="Tips for a good password">
         <div class="art-copy">
+          <p class="art-eyebrow">Almarah Foundation</p>
           <h2>Choose a new password</h2>
           <p>Pick something you have not used on other sites. Once it is changed, you will be signed out of your other sessions.</p>
           <ul class="checkline">

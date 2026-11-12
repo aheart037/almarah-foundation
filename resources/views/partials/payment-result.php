@@ -120,7 +120,7 @@ $view = match ($prOutcome) {
         ? ['tone' => 'wait', 'kicker' => 'Historical record', 'title' => 'Verification not established',
            'lead' => 'This historical donation is marked completed, but this record does not establish independent verification. Contact our team before relying on it as a verified payment.']
         : ['tone' => 'ok', 'kicker' => 'Payment Successful', 'title' => 'Thank you for your donation!',
-           'lead' => 'Your payment was successful, and your donation has been confirmed. JazakAllah Khair for your support.'],
+           'lead' => 'Your payment was successful, and your donation has been confirmed. JazakAllah Khair for your support.' . ($staffVerified ? '' : ' A thank-you email is on its way, and your tax exemption certificate will be emailed to you once our finance team has verified your donation.')],
     'processing' => $offlinePending
         ? ['tone' => 'wait', 'kicker' => 'Under review', 'title' => 'Transfer report received',
            'lead' => 'Your report is pending staff verification. The funds have not been confirmed and this is not a receipt. Keep your reference safe.']
@@ -145,7 +145,7 @@ $step3 = $legacyUnverified ? 'todo' : match ($prOutcome) { 'completed' => $recei
 $steps = [
     [$offlinePending ? 'now' : 'done', $offlinePending ? 'Transfer reported' : 'Payment sent', $offlinePending ? 'Waiting for staff review' : 'Payment method: ' . $gatewayName],
     [$step2, $offlinePending ? 'Staff verification' : 'Bank confirmation', $legacyUnverified ? 'Not independently verified' : ($prOutcome === 'completed' ? 'Verified by the bank' : ($prOutcome === 'processing' ? ($offlinePending ? 'Waiting for staff' : 'Waiting for the bank') : 'Not confirmed'))],
-    [$step3,  'Receipt and impact', $receiptSent ? 'Receipt emailed' : ($legacyUnverified ? 'Verification required' : ($prOutcome === 'completed' ? 'Awaiting authorized receipt' : 'After confirmation'))],
+    [$step3,  'Receipt and impact', $receiptSent ? 'Receipt emailed' : ($legacyUnverified ? 'Verification required' : ($prOutcome === 'completed' ? 'Certificate after verification' : 'After confirmation'))],
 ];
 
 $shareText = 'I just donated to ' . $targetText . ' with Almarah Foundation. Please join me: ' . $fundUrl;
@@ -234,7 +234,7 @@ $waUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
           <?php if ($legacyUnverified): ?>
             <p class="pr-note">No verified receipt is available for this historical record. Please contact <a href="mailto:<?= e($orgEmail) ?>"><?= e($orgEmail) ?></a> for help.</p>
           <?php elseif (!$officialReceipt): ?>
-            <p class="pr-note">Your payment is confirmed. Your official receipt is awaiting staff approval. Keep this reference for your records.</p>
+            <p class="pr-note">Your payment is confirmed. Your official receipt and tax exemption certificate are awaiting staff approval: our finance team is verifying your donation, and we will email your certificate as soon as that is done. Keep this reference for your records.</p>
           <?php else: ?>
             <p class="pr-note"><?= $receiptSent ? 'An authorized receipt has been emailed to' : 'Your authorized receipt is being prepared for' ?> <b><?= e($emailMasked) ?></b>.</p>
           <?php endif; ?>

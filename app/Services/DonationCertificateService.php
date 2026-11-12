@@ -246,6 +246,7 @@ final class DonationCertificateService
         }
         $fmt = static fn (string $ymd): string => (new \DateTimeImmutable($ymd, new \DateTimeZone('UTC')))->format('j F Y');
         $logo = dirname(__DIR__, 2) . '/assets/images/logo/cropped-logo-1-scaled-1.png';
+        $signature = dirname(__DIR__, 2) . '/assets/images/signature/chairperson-signature.png';
         return [
             'donor_name' => trim((string) ($d['donor_name'] ?? '')) ?: 'Donor',
             'amount' => (string) $d['currency'] . ' ' . number_format(((int) $d['amount_minor']) / 100, 2),
@@ -254,8 +255,12 @@ final class DonationCertificateService
             'org_name' => $this->setting('org_name'), 'org_address' => $this->setting('org_address'), 'ntn' => $this->setting('ntn'),
             'approval_text' => $this->setting('approval_text'),
             'valid_from' => $fmt($this->setting('approval_valid_from')), 'valid_until' => $fmt($this->setting('approval_valid_until')),
-            'signatory_name' => $this->setting('signatory_name'), 'signatory_title' => $this->setting('signatory_title') ?: 'Authorized Signatory',
+            'signatory_name' => $this->setting('signatory_name') ?: 'Sophia Warraich',
+            'signatory_title' => in_array($this->setting('signatory_title'), ['', 'Authorized Signatory'], true) ? 'Chairperson' : $this->setting('signatory_title'),
             'logo' => is_file($logo) ? $logo : null,
+            'signature' => is_file($signature) ? $signature : null,
+            // Static pages: FBR 2(36) approval (2 pages), Shariah approval, Punjab Charity Commission registration.
+            'appendix' => dirname(__DIR__, 2) . '/assets/documents/Certificate-Supporting-Documents.pdf',
         ];
     }
 
