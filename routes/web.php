@@ -14,6 +14,7 @@ use App\Core\Router;
 use App\Http\Controllers\Public\AuthController;
 use App\Http\Controllers\Public\DonateController;
 use App\Http\Controllers\Public\OfflineDonationController;
+use App\Http\Controllers\Public\InKindDonationController;
 use App\Http\Controllers\Public\DonationStatusController;
 use App\Http\Controllers\Public\FormsController;
 use App\Http\Controllers\Public\HomeController;
@@ -40,6 +41,8 @@ return static function (Router $router): void {
     $router->post('/donate/estimate', [DonateController::class, 'estimate'], [CsrfMiddleware::class], 'donate.estimate');
     $router->get('/donate/transfer', [OfflineDonationController::class, 'form'], [], 'donate.transfer');
     $router->post('/donate/transfer', [OfflineDonationController::class, 'submit'], [CsrfMiddleware::class], 'donate.transfer.submit');
+    $router->get('/donate/goods', [InKindDonationController::class, 'form'], [], 'donate.goods');
+    $router->post('/donate/goods', [InKindDonationController::class, 'submit'], [CsrfMiddleware::class], 'donate.goods.submit');
     $router->get('/donate/transfer/resubmit', [OfflineDonationController::class, 'resubmitForm'], [], 'donate.transfer.resubmit');
     $router->post('/donate/transfer/resubmit', [OfflineDonationController::class, 'resubmit'], [CsrfMiddleware::class], 'donate.transfer.resubmit.submit');
 

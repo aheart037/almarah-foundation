@@ -1,0 +1,3 @@
+Before committing, rename:
+  assets/js/dashboard-glass.js.txt  ->  assets/js/dashboard-glass.js
+(.txt only avoids a false-positive antivirus warning on zips that contain .js files.)

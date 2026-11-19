@@ -18,3 +18,15 @@
 [10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
 [10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  Undefined variable $history in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
 [10-Nov-2026 13:06:16 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 22:34:21 Asia/Karachi] PHP Warning:  Undefined variable $staffList in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 22:34:21 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 22:34:21 Asia/Karachi] PHP Warning:  Undefined variable $history in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 22:34:21 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 22:34:47 Asia/Karachi] PHP Warning:  Undefined variable $staffList in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 22:34:47 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[10-Nov-2026 22:34:47 Asia/Karachi] PHP Warning:  Undefined variable $history in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[10-Nov-2026 22:34:47 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[16-Nov-2026 15:06:36 Asia/Karachi] PHP Warning:  Undefined variable $staffList in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[16-Nov-2026 15:06:36 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 72
+[16-Nov-2026 15:06:36 Asia/Karachi] PHP Warning:  Undefined variable $history in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104
+[16-Nov-2026 15:06:36 Asia/Karachi] PHP Warning:  foreach() argument must be of type array|object, null given in /home/sophiyaw/softex.pk/donate/resources/views/admin/inbox/show.php on line 104

@@ -24,6 +24,9 @@ $is = static function (string $prefix) use ($path): string {
     return $path === $prefix || ($prefix !== '/admin' && str_starts_with($path, $prefix . '/')) ? 'active' : '';
 };
 $can = isset($can) && is_callable($can) ? $can : static fn (string $p): bool => false;
+// Glass look (background photo, pill top bar, glass rail, dock) on every admin page.
+$glass = true;
+$isOverview = $path === '/admin';
 $adminRole = in_array('admin', $currentUserRoles ?? [], true) || in_array('super_admin', $currentUserRoles ?? [], true);
 $fullName = trim((string) ($authUser['first_name'] ?? '') . ' ' . (string) ($authUser['last_name'] ?? ''));
 
@@ -59,6 +62,9 @@ $icon = static function (string $name): string {
         'jobs'     => '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M2 13h20"/>',
         'back'     => '<path d="M19 12H5M11 18l-6-6 6-6"/>',
         'chart'    => '<path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/>',
+        'bell'     => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+        'moon'     => '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+        'sun'      => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
         'backup'   => '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     ];
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$name] ?? '') . '</svg>';
@@ -80,9 +86,14 @@ $link = static function (string $href, string $label, string $iconName, string $
 <link rel="stylesheet" href="<?= e(asset('assets/css/admin.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/reports.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/admin-v31.css')) ?>">
+<?php if ($glass): ?><link rel="stylesheet" href="<?= e(asset('assets/css/dashboard-glass.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/admin-glass.css')) ?>"><?php endif; ?>
 <?php require __DIR__ . '/../partials/favicon.php'; ?>
 </head>
-<body class="admin-body">
+<body class="admin-body<?= $glass ? ' admin-glass' : '' ?>"<?= $glass ? ' data-gg-theme="light"' : '' ?>>
+<?php if ($glass): ?>
+<img class="gg-bg" src="<?= e(asset('assets/images/banners/Header-4-hd.jpg')) ?>" srcset="<?= e(asset('assets/images/banners/Header-4.jpg')) ?> 1663w, <?= e(asset('assets/images/banners/Header-4-hd.jpg')) ?> 2560w" sizes="100vw" alt="" aria-hidden="true" decoding="async" fetchpriority="high">
+<?php endif; ?>
 
 <header class="site-header admin-topbar" id="site-header">
   <div class="wrap header-inner" style="display:flex;align-items:center;gap:16px;min-height:64px">
@@ -90,7 +101,16 @@ $link = static function (string $href, string $label, string $iconName, string $
       <img src="<?= e(asset('assets/images/logo/header-logo-01.png')) ?>" alt="" width="120" height="43" style="height:40px;width:auto">
       <span style="font-weight:700;color:#6b0f35;letter-spacing:.04em;font-size:13px;text-transform:uppercase">Admin</span>
     </a>
+    <?php if ($glass): ?>
+    <button type="button" class="gg-ask" data-gg-search aria-label="Find an admin page"><span class="gg-orb" aria-hidden="true"></span><span class="gg-prompt">Find a page or report…</span><?= $icon('seo') ?></button>
+    <?php endif; ?>
     <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <?php if ($glass): ?>
+      <button type="button" class="gg-iconbtn" data-gg-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme"><?= $icon('moon') ?></button>
+      <?php if ($isOverview): ?>
+      <button type="button" class="gg-iconbtn gg-bell" data-gg-bell aria-label="Notifications" title="Needs your attention"><?= $icon('bell') ?><i hidden aria-hidden="true"></i></button>
+      <?php endif; ?>
+      <?php endif; ?>
       <a class="btn btn-light btn-sm" href="<?= e(base_url('/')) ?>" target="_blank" rel="noopener">View site</a>
       <form class="inline-form" method="post" action="<?= e(base_url('logout')) ?>">
         <?= csrf_field() ?>
@@ -203,5 +223,8 @@ $link = static function (string $href, string $label, string $iconName, string $
 
 <script src="<?= e(asset('assets/js/app.js')) ?>" defer></script>
 <script src="<?= e(asset('assets/js/admin.js')) ?>" defer></script>
+<?php if ($glass): require __DIR__ . '/../partials/admin-dock.php'; ?>
+<script src="<?= e(asset('assets/js/dashboard-glass.js')) ?>" defer></script>
+<?php endif; ?>
 </body>
 </html>

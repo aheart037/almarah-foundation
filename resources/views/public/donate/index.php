@@ -176,6 +176,12 @@ $flagUrl = static fn (string $code): string => isset($flagFile[$code]) ? asset('
                 <a class="btn btn-gold" id="reportTransfer" href="<?= e(base_url('donate/transfer?mode=report&currency=' . rawurlencode($selectedCurrency))) ?>">I already paid &mdash; upload my slip</a>
                 <a class="btn btn-outline" id="newTransfer" href="<?= e(base_url('donate/transfer?mode=new&currency=' . rawurlencode($selectedCurrency))) ?>">I want to make a new transfer</a>
             </div>
+
+            <div class="bank-quick" id="goodsDonation">
+                <h3>Donate goods / in-kind</h3>
+                <p>Giving items instead of money, such as shoes, jackets or food packets? Tell us what you are donating and our team will verify it and email your thank-you certificate.</p>
+                <a class="btn btn-gold" href="<?= e(base_url('donate/goods')) ?>">Donate goods</a>
+            </div>
         </aside>
     </div>
 </section>

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DonationController;
 use App\Http\Controllers\Admin\DonationCertificateController;
+use App\Http\Controllers\Admin\InKindController;
 use App\Http\Controllers\Admin\DonationReviewController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\BankLedgerController;
@@ -127,6 +128,15 @@ return static function (Router $router) use ($adminContent, $adminContentCsrf, $
     $router->get('/admin/donations/export', [DonationController::class, 'export'], $can('reports.view'), 'admin.donations.export');
     $router->get('/admin/donations/{id}', [DonationController::class, 'show'], $can('donations.view'), 'admin.donations.show');
     $router->post('/admin/donations/{id}/review', [DonationReviewController::class, 'decide'], $canCsrf('donations.verify'), 'admin.donations.review');
+    // --- in-kind (goods) donations ---------------------------------------------
+    $router->get('/admin/inkind', [InKindController::class, 'index'], $can('donations.view|donations.verify'), 'admin.inkind');
+    $router->get('/admin/inkind/certificates/{id}/download', [InKindController::class, 'download'], $can('donations.view|donations.verify'), 'admin.inkind.certificate.download');
+    $router->post('/admin/inkind/certificates/{id}/resend', [InKindController::class, 'resend'], $canCsrf('donations.verify'), 'admin.inkind.certificate.resend');
+    $router->get('/admin/inkind/{id}/photo/{n}', [InKindController::class, 'photo'], $can('donations.view|donations.verify'), 'admin.inkind.photo');
+    $router->get('/admin/inkind/{id}', [InKindController::class, 'show'], $can('donations.view|donations.verify'), 'admin.inkind.show');
+    $router->post('/admin/inkind/{id}/decide', [InKindController::class, 'decide'], $canCsrf('donations.verify'), 'admin.inkind.decide');
+    $router->post('/admin/inkind/{id}/certificate', [InKindController::class, 'generate'], $canCsrf('donations.verify'), 'admin.inkind.certificate.generate');
+
     $router->get('/admin/donations/{id}/certificate', [DonationCertificateController::class, 'download'], $can('donations.view'), 'admin.donations.certificate');
     $router->post('/admin/donations/{id}/certificate/generate', [DonationCertificateController::class, 'generate'], $canCsrf('donations.verify'), 'admin.donations.certificate.generate');
     $router->post('/admin/donations/{id}/certificate/email', [DonationCertificateController::class, 'retryEmail'], $canCsrf('donations.verify'), 'admin.donations.certificate.email');

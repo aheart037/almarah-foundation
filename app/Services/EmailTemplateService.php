@@ -158,6 +158,7 @@ final class EmailTemplateService
             'donation.cancelled'         => 'Your donation was cancelled ({{reference}})',
             'donation.certificate'       => 'Your tax exemption certificate ({{reference}})',
             'donation.refunded'          => 'Your donation has been refunded ({{reference}})',
+            'inkind.certificate'         => 'Thank you — your certificate of appreciation ({{reference}})',
             'admin.payment_alert'        => '[Action needed] Payment issue on {{reference}}',
             default                      => '{{appName}} notification',
         };

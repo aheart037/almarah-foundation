@@ -23,7 +23,7 @@ final class CertificatePdfService
     private const MUTED = [110, 100, 105];
 
     /**
-     * @param array{donor_name:string,amount:string,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,ntn:string,approval_text:string,valid_from:string,valid_until:string,signatory_name:string,signatory_title:string,logo:?string,signature?:?string,referrer?:string,appendix?:?string,compress?:bool} $c
+     * @param array{donor_name:string,amount:string,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,ntn:string,approval_text:string,valid_from:string,valid_until:string,signatory_name:string,signatory_title:string,logo:?string,signature?:?string,appendix?:?string,compress?:bool} $c
      */
     public function render(array $c): string
     {
@@ -150,15 +150,6 @@ final class CertificatePdfService
         $pdf->SetFont('Helvetica', '', 7.5);
         $pdf->Cell(267, 4, $pdf->t('Computer-generated certificate. Quote the certificate number above for any verification request.'), 0, 0, 'C');
 
-        // Optional referrer: drawn only when a name exists, so certificates without one are unchanged.
-        $referrer = trim((string) ($c['referrer'] ?? ''));
-        if ($referrer !== '') {
-            $pdf->SetXY(15, 194);
-            $pdf->SetFont('Helvetica', 'I', 8);
-            $pdf->SetTextColor(...self::MUTED);
-            $pdf->Cell(267, 4, $pdf->t('Referred by: ' . $referrer), 0, 0, 'C');
-        }
-
         $certificate = $pdf->Output('S');
 
         // Supporting documents follow the certificate, in their original order and layout.
@@ -171,6 +162,134 @@ final class CertificatePdfService
             throw new RuntimeException('The certificate supporting documents file is missing.');
         }
         return PdfAppender::append($certificate, $extra);
+    }
+
+    /**
+     * Thank-you certificate for a verified in-kind (goods) donation: one A4 landscape page, no monetary amount.
+     *
+     * @param array{donor_name:string,items:list<string>,more_items:int,donation_date:string,reference:string,certificate_number:string,issue_date:string,org_name:string,org_address:string,signatory_name:string,signatory_title:string,logo:?string,signature?:?string,compress?:bool} $c
+     */
+    public function renderInKind(array $c): string
+    {
+        $pdf = new CertificatePdfDocument('L', 'mm', 'A4');
+        if (($c['compress'] ?? true) === false) {
+            $pdf->SetCompression(false);
+        }
+        $pdf->SetTitle($pdf->t('Certificate of Appreciation ' . $c['certificate_number']), false);
+        $pdf->SetAuthor($pdf->t($c['org_name']), false);
+        $pdf->SetCreator($pdf->t($c['org_name']), false);
+        $pdf->SetAutoPageBreak(false);
+        $pdf->AddPage();
+
+        $pdf->SetDrawColor(...self::WINE);
+        $pdf->SetLineWidth(1.2);
+        $pdf->Rect(8, 8, 281, 194);
+        $pdf->SetDrawColor(...self::GOLD);
+        $pdf->SetLineWidth(0.5);
+        $pdf->Rect(11, 11, 275, 188);
+
+        $logo = $c['logo'] ?? null;
+        if ($logo !== null && is_file($logo)) {
+            try {
+                $pdf->Image($logo, 133.5, 14, 28, 0);
+            } catch (\Throwable) {
+                // the organisation name below still identifies the issuer
+            }
+        }
+        $pdf->SetXY(10, 44);
+        $pdf->SetFont('Helvetica', 'B', 13);
+        $pdf->SetTextColor(...self::WINE);
+        $pdf->Cell(277, 6, $pdf->t(strtoupper($c['org_name'])), 0, 1, 'C');
+        $pdf->SetFont('Helvetica', '', 9);
+        $pdf->SetTextColor(...self::MUTED);
+        $pdf->Cell(277, 5, $pdf->t($c['org_address']), 0, 1, 'C');
+
+        $pdf->Ln(1);
+        $pdf->SetFont('Helvetica', 'B', 28);
+        $pdf->SetTextColor(...self::DARK);
+        $pdf->Cell(277, 13, $pdf->t('Certificate of Appreciation'), 0, 1, 'C');
+        $pdf->SetFont('Helvetica', '', 11);
+        $pdf->SetTextColor(...self::MUTED);
+        $pdf->Cell(277, 6, $pdf->t('In-Kind Donation'), 0, 1, 'C');
+        $pdf->SetFillColor(...self::GOLD);
+        $pdf->Rect(128.5, $pdf->GetY() + 0.5, 40, 1, 'F');
+
+        $pdf->Ln(4);
+        $pdf->SetFont('Helvetica', '', 11);
+        $pdf->Cell(277, 6, $pdf->t('This certificate is proudly presented to'), 0, 1, 'C');
+        $name = $pdf->t($c['donor_name']);
+        $pdf->SetFont('Helvetica', 'BI', $pdf->GetStringWidth($name) > 230 ? 18 : 25);
+        $pdf->SetTextColor(...self::WINE);
+        $pdf->Cell(277, 12, $name, 0, 1, 'C');
+        $pdf->SetFont('Helvetica', '', 11);
+        $pdf->SetTextColor(...self::MUTED);
+        $pdf->Cell(277, 6, $pdf->t('in sincere appreciation of the generous donation of goods to ' . $c['org_name'] . ':'), 0, 1, 'C');
+
+        // Items (verified list; long lists are summarised so the page never overflows)
+        $pdf->Ln(1.5);
+        $pdf->SetFont('Helvetica', 'B', 12);
+        $pdf->SetTextColor(...self::DARK);
+        foreach (array_slice($c['items'], 0, 6) as $line) {
+            $line = $pdf->t($line);
+            while ($pdf->GetStringWidth($line) > 240 && strlen($line) > 4) {
+                $line = rtrim(substr($line, 0, -4)) . '...';
+            }
+            $pdf->Cell(277, 6.2, $line, 0, 1, 'C');
+        }
+        if ((int) ($c['more_items'] ?? 0) > 0) {
+            $pdf->SetFont('Helvetica', 'I', 10);
+            $pdf->SetTextColor(...self::MUTED);
+            $pdf->Cell(277, 5.5, $pdf->t('and ' . (int) $c['more_items'] . ' more item' . ((int) $c['more_items'] === 1 ? '' : 's')), 0, 1, 'C');
+        }
+
+        // Reference row
+        $y = max($pdf->GetY() + 4, 124.0);
+        $cols = [[40, 'Donation date', $c['donation_date']], [108, 'Donation reference', $c['reference']],
+                 [176, 'Certificate number', $c['certificate_number']], [236, 'Issue date', $c['issue_date']]];
+        foreach ($cols as [$x, $label, $value]) {
+            $pdf->SetXY($x, $y);
+            $pdf->SetTextColor(...self::MUTED);
+            $pdf->SetFont('Helvetica', '', 8);
+            $pdf->Cell(58, 4.2, $pdf->t(strtoupper($label)), 0, 2, 'L');
+            $pdf->SetTextColor(...self::DARK);
+            $pdf->SetFont('Helvetica', 'B', 10);
+            $pdf->Cell(58, 5.5, $pdf->t($value), 0, 0, 'L');
+        }
+
+        // Thank-you lines
+        $pdf->SetXY(25, $y + 13);
+        $pdf->SetFont('Helvetica', 'BI', 11.5);
+        $pdf->SetTextColor(...self::WINE);
+        $pdf->Cell(247, 6, $pdf->t('Thank you for your generosity. Your kindness helps us feed the hungry, parent the orphan and educate Pakistan.'), 0, 2, 'C');
+        $pdf->SetFont('Helvetica', 'I', 10.5);
+        $pdf->SetTextColor(...self::MUTED);
+        $pdf->Cell(247, 6, $pdf->t('We are deeply grateful for your trust and belief in our cause.'), 0, 2, 'C');
+
+        // Signature
+        $signature = $c['signature'] ?? null;
+        if ($signature !== null && is_file($signature)) {
+            try {
+                $pdf->Image($signature, 131.5, 160, 34, 0);
+            } catch (\Throwable) {
+                // the printed name below still identifies the signatory
+            }
+        }
+        $pdf->SetDrawColor(...self::MUTED);
+        $pdf->SetLineWidth(0.3);
+        $pdf->Line(112, 178, 185, 178);
+        $pdf->SetXY(112, 178.8);
+        $pdf->SetFont('Helvetica', 'B', 9.5);
+        $pdf->SetTextColor(...self::DARK);
+        $pdf->Cell(73, 5, $pdf->t($c['signatory_name'] !== '' ? $c['signatory_name'] : $c['org_name']), 0, 2, 'C');
+        $pdf->SetFont('Helvetica', '', 8.5);
+        $pdf->SetTextColor(...self::MUTED);
+        $pdf->Cell(73, 4.5, $pdf->t($c['signatory_title']), 0, 0, 'C');
+
+        $pdf->SetXY(15, 191);
+        $pdf->SetFont('Helvetica', '', 7.5);
+        $pdf->Cell(267, 4, $pdf->t('Computer-generated certificate. Quote the certificate number above for any verification request.'), 0, 0, 'C');
+
+        return $pdf->Output('S');
     }
 }
 
