@@ -30,6 +30,9 @@ final class DonationCertificateController extends Controller
     {
         $id = (int) $request->routeParam('id', 0);
         $cert = $this->certificates->find($id);
+        if ($cert) {
+            $cert = $this->certificates->upgradeIfOutdated($cert); // old-layout files are rebuilt as the new donor pack
+        }
         $path = $cert && $cert['status'] === 'generated' ? $this->certificates->absolutePath($cert) : null;
         if (!$path) {
             abort(404, 'No certificate on file.');

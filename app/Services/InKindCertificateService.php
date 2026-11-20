@@ -83,11 +83,16 @@ final class InKindCertificateService
         $number = sprintf('ALM-IK-%s-%06d', gmdate('Y'), $inkindId);
         $name = InKindDonationService::certificateName($d);
         try {
-            $binary = $this->pdf->renderInKind($this->pdfData($d, $number, $name));
+            $this->pdfData($d, $number, $name); // keeps the existing settings checks
+            $lines = [];
+            foreach ($this->donations->items($inkindId) as $i) {
+                $lines[] = $i['unit'] ? ((int) $i['quantity'] . ' ' . $i['unit'] . ' of ' . $i['item_name']) : ((int) $i['quantity'] . ' x ' . $i['item_name']);
+            }
+            $binary = (new DonorLetterPdfService())->render(DonorLetterPdfService::fromInKind($d, $lines, $name));
             if (!str_starts_with($binary, '%PDF')) {
                 throw new RuntimeException('PDF renderer returned invalid output.');
             }
-            $rel = 'private/certificates/' . $number . '-v' . $version . '.pdf';
+            $rel = 'private/certificates/' . $number . '-v' . $version . '-pack.pdf';
             $this->store($rel, $binary);
             $certId = $this->db->insert('inkind_certificates', [
                 'inkind_id' => $inkindId, 'version' => $version, 'certificate_number' => $number, 'status' => 'generated',

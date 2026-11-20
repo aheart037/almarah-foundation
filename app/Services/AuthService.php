@@ -265,7 +265,33 @@ final class AuthService
         if ($this->hasRole('super_admin')) {
             return true;
         }
-        return in_array($permission, $this->permissions(), true);
+        if (in_array($permission, $this->permissions(), true)) {
+            return true;
+        }
+        // Until database/migrations/0023_inkind_permissions.sql has been run, the in-kind permissions do not exist yet.
+        // In that case access follows the matching donation permission (the same rule the migration applies), so the
+        // "In-kind donations" menu is not hidden from staff who already manage donations. Once the permissions exist,
+        // they alone decide.
+        if ($permission === 'inkind.view' || $permission === 'inkind.verify') {
+            if (!$this->inkindPermissionsExist()) {
+                return in_array($permission === 'inkind.view' ? 'donations.view' : 'donations.verify', $this->permissions(), true);
+            }
+        }
+        return false;
+    }
+
+    private ?bool $inkindPermissionsSeeded = null;
+
+    private function inkindPermissionsExist(): bool
+    {
+        if ($this->inkindPermissionsSeeded === null) {
+            try {
+                $this->inkindPermissionsSeeded = $this->db->int("SELECT COUNT(*) FROM permissions WHERE name = 'inkind.view'") > 0;
+            } catch (\Throwable) {
+                $this->inkindPermissionsSeeded = true; // unknown: keep the strict behaviour
+            }
+        }
+        return $this->inkindPermissionsSeeded;
     }
 
     /** @param array<int,string> $permissions */

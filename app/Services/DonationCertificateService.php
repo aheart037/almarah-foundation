@@ -19,6 +19,9 @@ use Throwable;
  */
 final class DonationCertificateService
 {
+    /** Files made with the donor pack layout end like this; older certificates are rebuilt on download. */
+    public const PACK_SUFFIX = '-pack.pdf';
+
     public function __construct(
         private Database $db,
         private DonationRepository $donations,
@@ -64,9 +67,9 @@ final class DonationCertificateService
     }
 
     /** Idempotent: returns the existing certificate when already generated. */
-    public function generate(int $donationId, ?int $actor = null): array
+    public function generate(int $donationId, ?int $actor = null, bool $force = false): array
     {
-        $claim = $this->db->transaction(function () use ($donationId): array {
+        $claim = $this->db->transaction(function () use ($donationId, $force): array {
             $d = $this->db->selectOne('SELECT * FROM donations WHERE id = :id FOR UPDATE', ['id' => $donationId]);
             if (!$d) {
                 throw new RuntimeException('Donation not found.');
@@ -75,7 +78,7 @@ final class DonationCertificateService
                 throw new RuntimeException($why);
             }
             $row = $this->db->selectOne('SELECT * FROM donation_certificates WHERE donation_id = :id FOR UPDATE', ['id' => $donationId]);
-            if ($row && $row['status'] === 'generated' && $this->absolutePath($row) !== null) {
+            if ($row && $row['status'] === 'generated' && $this->absolutePath($row) !== null && !$force) {
                 return ['row' => $row, 'work' => false];
             }
             if (!$row) {
@@ -98,20 +101,27 @@ final class DonationCertificateService
         try {
             $info = $this->donations->find($donationId) ?? throw new RuntimeException('Donation not found.');
             $issuedAt = $row['issued_at'] ?: gmdate('Y-m-d H:i:s');
-            $binary = $this->pdf->render($this->pdfData($info, (string) $row['certificate_number'], $issuedAt));
+            $this->pdfData($info, (string) $row['certificate_number'], $issuedAt); // keeps the approval-period / settings checks
+            // Donor pack: receipt + thank-you letter + FBR / Shariah / Charity Commission pages.
+            $binary = (new DonorLetterPdfService())->render(DonorLetterPdfService::fromDonation($info));
             if (!str_starts_with($binary, '%PDF')) {
                 throw new RuntimeException('PDF renderer returned invalid output.');
             }
-            $rel = 'private/certificates/' . $row['certificate_number'] . '.pdf';
+            $rel = 'private/certificates/' . $row['certificate_number'] . self::PACK_SUFFIX;
             $this->store($rel, $binary);
             $this->db->update('donation_certificates', [
                 'status' => 'generated', 'file_path' => $rel, 'file_sha256' => hash('sha256', $binary),
                 'issued_at' => $issuedAt, 'generated_at' => gmdate('Y-m-d H:i:s'), 'generated_by' => $actor, 'generation_error' => null,
-            ], "id = :id AND status <> 'generated'", ['id' => $certId]);
+            ], $force ? 'id = :id' : "id = :id AND status <> 'generated'", ['id' => $certId]);
             $this->db->update('donations', ['certificate_status' => 'issued'], 'id = :id', ['id' => $donationId]);
             $this->audit->log('donation.certificate.generated', 'donation', $donationId, ['certificate' => $row['certificate_number']], $actor);
         } catch (Throwable $e) {
             $msg = mb_substr($e->getMessage(), 0, 480);
+            if ($force) {
+                // Re-building an old certificate must never break the one already on file.
+                $this->logger->error('Certificate rebuild failed', ['donation' => $donationId, 'error' => $msg]);
+                return $this->db->selectOne('SELECT * FROM donation_certificates WHERE id = :id', ['id' => $certId]) ?? $row;
+            }
             $this->db->update('donation_certificates', ['status' => 'failed', 'generation_error' => $msg], "id = :id AND status <> 'generated'", ['id' => $certId]);
             $this->db->update('donations', ['certificate_status' => 'failed'], "id = :id AND certificate_status <> 'issued'", ['id' => $donationId]);
             $this->logger->error('Certificate generation failed', ['donation' => $donationId, 'error' => $msg]);
@@ -189,6 +199,19 @@ final class DonationCertificateService
             'email_sent_at' => $status === 'sent' ? ($job['sent_at'] ?: gmdate('Y-m-d H:i:s')) : null];
         $this->db->update('donation_certificates', $upd, 'id = :id', ['id' => $row['id']]);
         return array_merge($row, $upd);
+    }
+
+    /** Rebuild a certificate that was made with the old layout (once); returns the row to download. */
+    public function upgradeIfOutdated(array $row): array
+    {
+        if (($row['status'] ?? '') === 'generated' && !str_ends_with((string) ($row['file_path'] ?? ''), self::PACK_SUFFIX)) {
+            try {
+                return $this->generate((int) $row['donation_id'], null, true);
+            } catch (Throwable $e) {
+                $this->logger->error('Certificate upgrade skipped', ['donation' => $row['donation_id'] ?? null, 'error' => $e->getMessage()]);
+            }
+        }
+        return $row;
     }
 
     public function absolutePath(array $row): ?string

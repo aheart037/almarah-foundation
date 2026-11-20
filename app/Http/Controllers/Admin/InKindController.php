@@ -36,7 +36,14 @@ final class InKindController extends Controller
             'q' => trim((string) $request->input('q', '')), 'status' => (string) $request->input('status', ''),
             'date_from' => (string) $request->input('date_from', ''), 'date_to' => (string) $request->input('date_to', ''),
         ];
-        $result = $this->inkind->search($filters, max(1, (int) $request->input('page', 1)));
+        try {
+            $result = $this->inkind->search($filters, max(1, (int) $request->input('page', 1)));
+        } catch (\PDOException $e) {
+            if (str_contains($e->getMessage(), 'inkind_donations') || str_contains($e->getMessage(), '42S02')) {
+                abort(503, 'The in-kind donation tables are not in the database yet. In phpMyAdmin run setup/4-run-fourth-0022-in-kind-donations.sql, then setup/5-run-fifth-0023-inkind-permissions.sql, and reload this page.');
+            }
+            throw $e;
+        }
         return $this->render('admin/inkind/index', [
             'pageTitle' => 'In-kind donations', 'filters' => $filters, 'result' => $result,
             'page' => $result['page'], 'lastPage' => $result['lastPage'], 'total' => $result['total'],
