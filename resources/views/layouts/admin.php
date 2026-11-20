@@ -161,13 +161,14 @@ $link = static function (string $href, string $label, string $iconName, string $
           <?php if ($can('donations.verify')): ?><?= $link('admin/donations?verification_status=submitted', 'Verification queue', 'shield', '') ?><?php endif; ?>
         <?php endif; ?>
 
-        <?php if ($can('donations.view') || $can('donors.view') || $can('finance.manage') || $can('logs.view')): ?>
+        <?php if ($can('donations.view') || $can('donors.view') || $can('finance.manage') || $can('logs.view') || $can('inkind.view') || $can('inkind.verify')): ?>
           <div class="nav-group">Finance</div>
           <?php if ($can('donations.view')): ?>
             <?= $link('admin/donations', 'Donations', 'heart', $is('/admin/donations')) ?>
             <?= $link('admin/ledger/banks', 'Bank ledgers', 'bank', $is('/admin/ledger/banks')) ?>
             <?= $link('admin/ledger', 'Donation ledger', 'chart', $path === '/admin/ledger' ? 'active' : '') ?>
             <?php endif; ?>
+          <?php if ($can('inkind.view') || $can('inkind.verify')): ?><?= $link('admin/inkind', 'In-kind donations', 'heart', $is('/admin/inkind')) ?><?php endif; ?>
           <?php if ($can('donors.view') || $can('donations.view')): ?><?= $link('admin/donors', 'Donors', 'users', $is('/admin/donors')) ?>
           <?php endif; ?>
           <?php if ($can('finance.manage')): ?>

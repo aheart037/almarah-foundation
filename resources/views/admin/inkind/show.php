@@ -8,7 +8,7 @@ $cats = \App\Services\InKindDonationService::CATEGORIES;
 $badgeStatus = static fn (string $s): string => status_badge_class($s === 'verified' ? 'approved' : $s);
 $mailBadge = ['sent' => ['badge badge-green', 'Emailed'], 'queued' => ['badge badge-amber', 'Email queued'], 'failed' => ['badge badge-red', 'Email failed'], 'skipped' => ['badge badge-grey', 'No email'], 'not_sent' => ['badge badge-grey', 'Not sent']];
 $v = static fn (string $k): string => trim((string) ($d[$k] ?? ''));
-$canVerify = isset($can) && $can('donations.verify');
+$canVerify = isset($can) && $can('inkind.verify');
 $other = (int) ($d['acknowledgment_self'] ?? 1) === 0 && $v('recipient_name') !== '';
 $hasRef = !empty($d['referral_enabled']) && $v('referrer_name') !== '';
 $latest = null;

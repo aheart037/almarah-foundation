@@ -27,7 +27,8 @@ if ($can('content.manage')) { $items[] = ['/admin/cms', 'admin/cms/slides', 'Web
 <nav class="gg-dock" aria-label="Quick destinations">
   <span class="gg-dock-indicator" aria-hidden="true"></span>
   <?php foreach ($items as [$prefix, $href, $label, $icon]):
-      $current = $prefix === '/admin' ? $path === '/admin' : ($path === $prefix || str_starts_with($path, $prefix . '/'));
+      $prefixes = $prefix === '/admin/donations' ? ['/admin/donations', '/admin/inkind'] : [$prefix];
+      $current = $prefix === '/admin' ? $path === '/admin' : array_reduce($prefixes, static fn (bool $c, string $x): bool => $c || $path === $x || str_starts_with($path, $x . '/'), false);
   ?>
     <a href="<?= e(base_url($href)) ?>" aria-label="<?= e($label) ?>"<?= $current ? ' aria-current="page"' : '' ?>>
       <?= $svg($icons[$icon]) ?><span class="gg-dock-text" aria-hidden="true"><?= e($label) ?></span><span class="gg-dock-short" aria-hidden="true"><?= e($label) ?></span>

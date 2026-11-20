@@ -19,7 +19,7 @@ use Throwable;
 
 /**
  * Finance/admin screens for in-kind (goods) donations. Routes enforce permissions + CSRF:
- * viewing = donations.view or donations.verify; every action = donations.verify.
+ * viewing = inkind.view or inkind.verify; every action = inkind.verify.
  */
 final class InKindController extends Controller
 {

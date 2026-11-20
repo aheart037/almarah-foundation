@@ -254,3 +254,13 @@
 /* a .select-field wrapper div around a <select class="select-field"> must not draw a second box */
 .admin-glass div.select-field { background: none; border: 0; box-shadow: none; padding: 0; height: auto; backdrop-filter: none; -webkit-backdrop-filter: none; display: inline-block; }
 .admin-glass div.select-field > select { width: 100%; }
+
+/* tab strips (.tabs) — used by the In-kind donations list and other filter bars */
+.admin-glass .tabs { gap: 6px; border-bottom: 0; margin-bottom: 16px; padding: 4px; border-radius: 999px; background: var(--gg-inner); border: 1px solid var(--gg-line); width: fit-content; max-width: 100%; }
+.admin-glass .tabs a { margin: 0; padding: 8px 16px; border: 0; border-radius: 999px; color: var(--gg-ink); font-size: 13px; font-weight: 750; transition: background .2s; }
+.admin-glass .tabs a:hover { background: var(--gg-raised); color: var(--gg-ink); }
+.admin-glass .tabs a.active { background: var(--gg-primary); color: var(--gg-primary-ink); }
+.admin-glass .timeline li { border-left-color: var(--gg-line); }
+.admin-glass .timeline li::before { background: var(--gg-surface); border-color: var(--gg-rose); }
+.admin-glass .timeline .when, .admin-glass .timeline .meta { color: var(--gg-muted); }
+.admin-glass .timeline .what { color: var(--gg-ink); }

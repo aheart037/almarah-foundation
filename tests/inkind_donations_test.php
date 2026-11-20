@@ -66,10 +66,10 @@ $database->run("INSERT IGNORE INTO roles (id, name, label) VALUES (10, 'finance_
 foreach ([[21, 'ikrec@example.org'], [22, 'ikfin@example.org'], [23, 'ikplain@example.org']] as [$id, $mail]) {
     $database->run("INSERT IGNORE INTO users (id, first_name, last_name, email, password_hash, status) VALUES ($id, 'U$id', 'T', '$mail', 'x', 'active')");
 }
-$database->run("INSERT IGNORE INTO permissions (name, group_name, label) VALUES ('donations.view', 'donations', 'View donations')");
+$database->run("INSERT IGNORE INTO permissions (name, group_name, label) VALUES ('inkind.view', 'in_kind', 'View in-kind donations'), ('inkind.verify', 'in_kind', 'Verify in-kind donations')");
 $perm = static fn (string $p): int => (int) $database->scalar('SELECT id FROM permissions WHERE name = :n', ['n' => $p]);
-foreach (['donations.view', 'donations.verify'] as $p) { $database->run('INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (10, ' . $perm($p) . ')'); }
-$database->run('INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (11, ' . $perm('donations.view') . ')');
+foreach (['inkind.view', 'inkind.verify'] as $p) { $database->run('INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (10, ' . $perm($p) . ')'); }
+$database->run('INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (11, ' . $perm('inkind.view') . ')');
 $database->run('INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (22, 10), (21, 11)');
 
 $svc = $app->make(InKindDonationService::class);
