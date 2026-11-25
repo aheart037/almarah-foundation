@@ -216,6 +216,7 @@ try {
 <link rel="stylesheet" href="<?= e(asset('assets/css/site.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/hero-v32.css')) ?>">
 <link rel="stylesheet" href="<?= e(asset('assets/css/header-v38.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('assets/css/footer-v40.css')) ?>">
 <?php if (str_contains($content, 'class="section pr-page"')): ?>
 <link rel="stylesheet" href="<?= e(asset('assets/css/payment-result.css')) ?>">
 <script src="<?= e(asset('assets/js/payment-result.js')) ?>" defer></script>
@@ -251,5 +252,6 @@ try {
 <?php require __DIR__ . '/../partials/site-footer.php'; ?>
 
 <script src="<?= e(asset('assets/js/site.js')) ?>" defer></script>
+<script src="<?= e(asset('assets/js/footer-v40.js')) ?>" defer></script>
 </body>
 </html>
