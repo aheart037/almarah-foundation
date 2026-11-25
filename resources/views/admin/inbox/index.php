@@ -50,12 +50,19 @@ $badge = static function (string $s): string {
   <?php if ($rows === []): ?>
     <div class="empty-state"><h3><?= $showAll || $q !== '' ? 'Nothing to show' : 'No unread items' ?></h3><p><?= $q !== '' || $status !== '' ? 'No records match the filter.' : ($showAll ? 'New submissions will appear here the moment someone sends the form.' : 'You are all caught up. New submissions will appear here the moment someone sends the form.') ?></p></div>
   <?php else: ?>
+    <?php $canDelete = isset($can) && $can('forms.delete'); ?>
+    <?php if ($canDelete): ?>
+    <form method="post" action="<?= e($base . '/bulk-delete' . ($showAll ? '?view=all' : '')) ?>" data-bulk data-confirm-template="Permanently delete {n} selected entr(ies) and any attached files? This cannot be undone.">
+      <?= csrf_field() ?>
+      <?php $bulkNoun = 'entries'; require __DIR__ . '/../../partials/bulk-delete-bar.php'; ?>
+    <?php endif; ?>
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><?php foreach ($box['list'] as $c => $l): ?><th><?= e($l) ?></th><?php endforeach; ?><th></th></tr></thead>
+        <thead><tr><?php if ($canDelete): ?><th style="width:32px"><input type="checkbox" data-bulk-all aria-label="Select all"></th><?php endif; ?><?php foreach ($box['list'] as $c => $l): ?><th><?= e($l) ?></th><?php endforeach; ?><th></th></tr></thead>
         <tbody>
           <?php foreach ($rows as $row): $id = (int) $row['id']; $first = true; ?>
             <tr>
+              <?php if ($canDelete): ?><td><input type="checkbox" name="ids[]" value="<?= $id ?>" data-bulk-item aria-label="Select entry #<?= $id ?>"></td><?php endif; ?>
               <?php foreach ($box['list'] as $c => $l): ?>
                 <td class="<?= $first ? 'wrap' : '' ?>">
                   <?php
@@ -81,6 +88,7 @@ $badge = static function (string $s): string {
         </tbody>
       </table>
     </div>
+    <?php if ($canDelete): ?></form><?php endif; ?>
     <?php require __DIR__ . '/../../partials/pagination.php'; ?>
   <?php endif; ?>
 </section>

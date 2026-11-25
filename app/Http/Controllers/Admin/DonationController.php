@@ -16,6 +16,7 @@ use App\Repositories\DonationRepository;
 use App\Repositories\PaymentRepository;
 use App\Services\AuthService;
 use App\Services\DonationService;
+use App\Services\RecordDeletionService;
 use InvalidArgumentException;
 
 /**
@@ -35,7 +36,8 @@ final class DonationController extends Controller
         private Database $db,
         private DonationRepository $donations,
         private PaymentRepository $payments,
-        private DonationService $service
+        private DonationService $service,
+        private RecordDeletionService $deletion
     ) {
         parent::__construct($view, $session, $csrf, $auth);
     }
@@ -117,6 +119,49 @@ final class DonationController extends Controller
             'reviewStages' => \app(\App\Services\DonationReviewService::class)->stages(),
             'staffIdentity' => $this->db->selectOne('SELECT creator.email AS created_by, verifier.email AS verified_by FROM donations d LEFT JOIN users creator ON creator.id=d.recorded_by LEFT JOIN users verifier ON verifier.id=d.verified_by WHERE d.id=:id', ['id' => $donation['id']]),
         ], 'layouts/admin');
+    }
+
+    /** Permanently delete one junk donation (never a confirmed/financial record; see RecordDeletionService). */
+    public function destroy(Request $request): Response
+    {
+        $id = (int) $request->routeParam('id', 0);
+        try {
+            $reason = RecordDeletionService::cleanReason($request->input('reason', ''));
+        } catch (\InvalidArgumentException $e) {
+            $this->flashError($e->getMessage());
+            return $this->redirect('/admin/donations/' . $id);
+        }
+        $result = $this->deletion->deleteDonation($id, (int) $this->auth->id(), $reason);
+        if ($result['ok']) {
+            $this->flashSuccess($result['message']);
+            return $this->redirect('/admin/donations');
+        }
+        $this->flashError($result['message']);
+        return $this->redirect('/admin/donations/' . $id);
+    }
+
+    /** Delete the ticked donations from the list; ones that are financial records are skipped and listed. */
+    public function bulkDestroy(Request $request): Response
+    {
+        $ids = RecordDeletionService::cleanIds($request->input('ids', []));
+        if ($ids === []) {
+            $this->flashError('Tick at least one donation first.');
+            return $this->redirect('/admin/donations');
+        }
+        try {
+            $reason = RecordDeletionService::cleanReason($request->input('reason', ''));
+        } catch (\InvalidArgumentException $e) {
+            $this->flashError($e->getMessage());
+            return $this->redirect('/admin/donations');
+        }
+        $r = $this->deletion->bulk($ids, (int) $this->auth->id(), fn (int $id, int $actor): array => $this->deletion->deleteDonation($id, $actor, $reason));
+        if ($r['deleted'] > 0) {
+            $this->flashSuccess($r['deleted'] . ' donation' . ($r['deleted'] === 1 ? '' : 's') . ' deleted.');
+        }
+        if ($r['skipped'] !== []) {
+            $this->flashWarning(count($r['skipped']) . ' not deleted: ' . implode(' | ', array_slice($r['skipped'], 0, 5)) . (count($r['skipped']) > 5 ? ' …' : ''));
+        }
+        return $this->redirect('/admin/donations');
     }
 
     /** Ask the provider what happened to a transaction we never heard back on. */

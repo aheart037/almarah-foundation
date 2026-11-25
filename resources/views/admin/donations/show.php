@@ -23,6 +23,9 @@ $canRefund = $status === 'completed' && $transactions !== [];
   </div>
   <div class="sr-actions">
     <a class="btn btn-light" href="<?= e(base_url('admin/donations')) ?>">Back to donations</a>
+    <?php if (isset($can) && $can('donations.edit') && \App\Services\RecordEditService::donationEditability($donation)['mode'] !== 'blocked'): ?>
+      <a class="btn btn-outline-brand" href="<?= e(base_url('admin/donations/' . (int) $donation['id'] . '/edit')) ?>">Edit</a>
+    <?php endif; ?>
     <?php if (isset($can) && $can('finance.manage')): ?>
       <a class="btn btn-outline-brand" href="<?= e(base_url('admin/finance/donations/' . (int) $donation['id'] . '/adjust')) ?>">Adjust</a>
       <?php if ($status === 'completed' && !empty($donation['donor_email'])): ?>
@@ -164,3 +167,5 @@ $canRefund = $status === 'completed' && $transactions !== [];
     <?php endif; ?>
   </section>
 </div>
+
+<?php require __DIR__ . '/delete-panel.php'; ?>

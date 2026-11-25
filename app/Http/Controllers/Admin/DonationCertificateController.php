@@ -14,6 +14,7 @@ use App\Repositories\DonationRepository;
 use App\Services\AuditService;
 use App\Services\AuthService;
 use App\Services\DonationCertificateService;
+use App\Services\DonorWhatsAppService;
 use Throwable;
 
 /** Certificate download (donations.view) and recovery actions (donations.verify); routes enforce permissions + CSRF. */
@@ -21,7 +22,7 @@ final class DonationCertificateController extends Controller
 {
     public function __construct(
         View $view, Session $session, Csrf $csrf, AuthService $auth,
-        private DonationCertificateService $certificates, private DonationRepository $donations, private AuditService $audit
+        private DonationCertificateService $certificates, private DonationRepository $donations, private AuditService $audit, private DonorWhatsAppService $donorWhatsApp
     ) {
         parent::__construct($view, $session, $csrf, $auth);
     }
@@ -40,6 +41,15 @@ final class DonationCertificateController extends Controller
         $this->audit->log('donation.certificate.downloaded', 'donation', $id, ['certificate' => $cert['certificate_number']], (int) $this->auth->id());
         return Response::file($path, (string) $cert['certificate_number'] . '.pdf', 'application/pdf')
             ->withHeader('X-Content-Type-Options', 'nosniff');
+    }
+
+    /** Sends the same donor PDF as "Download PDF" to the donor's WhatsApp number. */
+    public function whatsapp(Request $request): Response
+    {
+        $id = (int) $request->routeParam('id', 0);
+        $r = $this->donorWhatsApp->sendDonation($id, (int) $this->auth->id());
+        $r['ok'] ? $this->flashSuccess($r['message']) : $this->flashError($r['message']);
+        return $this->redirect('/admin/donations/' . $id);
     }
 
     /** Create the certificate for a verified donation when automatic generation failed. */

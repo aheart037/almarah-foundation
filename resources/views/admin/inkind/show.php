@@ -14,7 +14,8 @@ $hasRef = !empty($d['referral_enabled']) && $v('referrer_name') !== '';
 $latest = null;
 foreach ($certs as $c) { if ($c['status'] === 'generated') { $latest = $c; break; } }
 $totalQty = array_sum(array_map(static fn (array $i): int => (int) $i['quantity'], $items));
-$eventLabels = ['submitted' => 'Donation submitted', 'verified' => 'Verified by finance', 'rejected' => 'Rejected', 'reopened' => 'Reopened', 'certificate_generated' => 'Certificate generated', 'certificate_emailed' => 'Certificate emailed', 'certificate_failed' => 'Certificate failed'];
+$eventLabels = ['submitted' => 'Donation submitted', 'verified' => 'Verified by finance', 'rejected' => 'Rejected', 'reopened' => 'Reopened', 'certificate_generated' => 'Certificate generated', 'certificate_emailed' => 'Certificate emailed', 'certificate_failed' => 'Certificate failed', 'certificate_whatsapp' => 'Certificate sent on WhatsApp', 'edited' => 'Edited by staff'];
+$waOn = (string) config('whatsapp.wetarseel.api_key', '') !== '';
 ?>
 <div class="dash-head">
   <div>
@@ -26,7 +27,9 @@ $eventLabels = ['submitted' => 'Donation submitted', 'verified' => 'Verified by 
   </div>
   <div class="sr-actions">
     <a class="btn btn-light" href="<?= e(base_url('admin/inkind')) ?>">Back to in-kind donations</a>
+    <?php if (isset($can) && $can('inkind.edit')): ?><a class="btn btn-outline-brand" href="<?= e(base_url('admin/inkind/' . (int) $d['id'] . '/edit')) ?>">Edit</a><?php endif; ?>
     <?php if ($latest): ?><a class="btn btn-outline-brand" href="<?= e(base_url('admin/inkind/certificates/' . (int) $latest['id'] . '/download')) ?>">Download certificate</a><?php endif; ?>
+    <?php if ($latest && $waOn && $canVerify): ?><form method="post" action="<?= e(base_url('admin/inkind/certificates/' . (int) $latest['id'] . '/whatsapp')) ?>" style="display:inline" data-confirm="Send this PDF to the donor on WhatsApp?"><?= csrf_field() ?><button class="btn btn-outline-brand" type="submit">Send on WhatsApp</button></form><?php endif; ?>
   </div>
 </div>
 
@@ -173,6 +176,10 @@ $eventLabels = ['submitted' => 'Donation submitted', 'verified' => 'Verified by 
             <?php if ($c['status'] === 'generated'): ?>
             <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
               <a class="btn btn-light btn-sm" href="<?= e(base_url('admin/inkind/certificates/' . (int) $c['id'] . '/download')) ?>">Download PDF</a>
+              <?php if ($canVerify && $waOn): ?>
+              <form method="post" action="<?= e(base_url('admin/inkind/certificates/' . (int) $c['id'] . '/whatsapp')) ?>" data-confirm="Send this PDF to the donor on WhatsApp?"><?= csrf_field() ?>
+                <button class="btn btn-outline-brand btn-sm" type="submit">Send on WhatsApp</button></form>
+              <?php endif; ?>
               <?php if ($canVerify): ?>
               <form method="post" action="<?= e(base_url('admin/inkind/certificates/' . (int) $c['id'] . '/resend')) ?>"><?= csrf_field() ?>
                 <button class="btn btn-outline-brand btn-sm" type="submit"><?= $c['email_status'] === 'sent' ? 'Resend email' : 'Send email' ?></button></form>
@@ -201,3 +208,19 @@ $eventLabels = ['submitted' => 'Donation submitted', 'verified' => 'Verified by 
     <?php endforeach; ?>
   </ul>
 </section>
+
+<?php if (isset($can) && $can('inkind.delete')): $deleteBlock = \App\Services\RecordDeletionService::inkindBlocker($d); ?>
+<section class="panel" style="margin-top:20px">
+  <div class="panel-head"><h3>Delete this donation</h3></div>
+  <?php if ($deleteBlock !== null): ?>
+    <p class="muted">This donation cannot be deleted. <?= e($deleteBlock) ?></p>
+  <?php else: ?>
+    <p class="muted">For spam or test submissions. This permanently removes the submission, its items, history and uploaded photos. A record of the deletion is kept in the audit log.</p>
+    <form method="post" action="<?= e(base_url('admin/inkind/' . (int) $d['id'] . '/delete')) ?>" data-confirm="Permanently delete <?= e((string) $d['public_reference']) ?> and its photos? This cannot be undone.">
+      <?= csrf_field() ?>
+      <div class="field" style="max-width:520px;margin:10px 0 12px"><label for="del_reason">Reason for deleting<span class="req">*</span></label><input class="input" id="del_reason" name="reason" required minlength="5" maxlength="500" placeholder="e.g. Test entry made while training staff"><small class="muted">Saved with the deletion in Deleted records.</small></div>
+      <button class="btn btn-danger" type="submit">Delete permanently</button>
+    </form>
+  <?php endif; ?>
+</section>
+<?php endif; ?>

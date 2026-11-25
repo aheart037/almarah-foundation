@@ -90,11 +90,12 @@ $fmt = static function (string $key, $value) use ($box): string {
       <button class="btn btn-brand" type="submit">Save</button>
     </form>
     <hr style="margin:22px 0;border:0;border-top:1px solid #eee3e8">
-    <?php if (!in_array($box['key'], ['contact','volunteers'], true)): ?>
-    <form method="post" action="<?= e($base . '/' . $id . '/delete') ?>" data-confirm="Permanently delete this record and any attached file? This cannot be undone.">
+    <?php if (isset($can) && $can('forms.delete')): ?>
+    <form method="post" action="<?= e($base . '/' . $id . '/delete') ?>" data-confirm="Permanently delete this record, its history and any attached file? This cannot be undone.">
       <?= csrf_field() ?>
+      <div class="field" style="max-width:520px;margin:10px 0 12px"><label for="del_reason">Reason for deleting<span class="req">*</span></label><input class="input" id="del_reason" name="reason" required minlength="5" maxlength="500" placeholder="e.g. Test entry made while training staff"><small class="muted">Saved with the deletion in Deleted records.</small></div>
       <button class="btn btn-danger btn-sm" type="submit">Delete permanently</button>
-      <span class="form-help" style="display:inline-block;margin-left:10px">Use for spam or data-removal requests.</span>
+      <span class="form-help" style="display:inline-block;margin-left:10px">Use for spam, test entries or data-removal requests.</span>
     </form>
     <?php endif; ?>
   </section>

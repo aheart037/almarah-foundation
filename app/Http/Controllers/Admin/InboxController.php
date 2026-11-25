@@ -13,6 +13,7 @@ use App\Core\View;
 use App\Http\Controllers\Controller;
 use App\Services\AuditService;
 use App\Services\AuthService;
+use App\Services\RecordDeletionService;
 use App\Services\UploadService;
 
 /**
@@ -34,7 +35,8 @@ final class InboxController extends Controller
         AuthService $auth,
         private Database $db,
         private UploadService $uploads,
-        private AuditService $audit
+        private AuditService $audit,
+        private RecordDeletionService $deletion
     ) {
         parent::__construct($view, $session, $csrf, $auth);
     }
@@ -285,16 +287,68 @@ final class InboxController extends Controller
     {
         $box = $this->box($request);
         $row = $this->find($box, (int) $request->routeParam('id', 0));
-        if (!empty($box['resume']) && !empty($row['resume_path'])) {
-            $path = $this->uploads->privatePath((string) $row['resume_path']);
-            if ($path !== null && is_file($path)) {
-                @unlink($path);
+        try {
+            $reason = RecordDeletionService::cleanReason($request->input('reason', ''));
+        } catch (\InvalidArgumentException $e) {
+            $this->flashError($e->getMessage());
+            return $this->redirect('/admin/inbox/' . $box['key'] . '/' . (int) $row['id']);
+        }
+        $this->deleteRows($box, [$row], $reason);
+        $this->flashSuccess('Deleted permanently.');
+        return $this->redirect('/admin/inbox/' . $box['key'] . ($request->string('view') === 'all' ? '?view=all' : ''));
+    }
+
+    /** Delete every ticked entry in this box (list page checkboxes). */
+    public function bulkDestroy(Request $request): Response
+    {
+        $box = $this->box($request);
+        $back = '/admin/inbox/' . $box['key'] . ($request->string('view') === 'all' ? '?view=all' : '');
+        $ids = array_slice(RecordDeletionService::cleanIds($request->input('ids', [])), 0, RecordDeletionService::BULK_LIMIT);
+        if ($ids === []) {
+            $this->flashError('Tick at least one entry first.');
+            return $this->redirect($back);
+        }
+        try {
+            $reason = RecordDeletionService::cleanReason($request->input('reason', ''));
+        } catch (\InvalidArgumentException $e) {
+            $this->flashError($e->getMessage());
+            return $this->redirect($back);
+        }
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $rows = $this->db->select("SELECT * FROM `{$box['table']}` WHERE id IN ({$marks})", $ids);
+        $this->deleteRows($box, $rows, $reason);
+        $this->flashSuccess(count($rows) . ' entr' . (count($rows) === 1 ? 'y' : 'ies') . ' deleted permanently.');
+        return $this->redirect($back);
+    }
+
+    /**
+     * Permanently remove rows from one inbox table, with their history and any attached CV,
+     * and write one audit record per row (no personal data is copied into the audit log).
+     *
+     * @param array<string,mixed> $box
+     * @param list<array<string,mixed>> $rows
+     */
+    private function deleteRows(array $box, array $rows, string $reason): void
+    {
+        $actor = (int) $this->auth->id();
+        foreach ($rows as $row) {
+            $id = (int) $row['id'];
+            $this->db->transaction(function () use ($box, $id, $actor, $reason): void {
+                // Case history (contact/volunteers) cascades in the schema; remove it explicitly too.
+                if ($box['key'] === 'contact') {
+                    $this->db->delete('form_case_events', 'contact_id = :id', ['id' => $id]);
+                } elseif ($box['key'] === 'volunteers') {
+                    $this->db->delete('form_case_events', 'volunteer_id = :id', ['id' => $id]);
+                }
+                $this->db->delete($box['table'], 'id = :id', ['id' => $id]);
+                // Only the box and id are kept (no name, email or message), so a data-removal request is honoured.
+                $this->deletion->logDeleted($box['key'], $id, '#' . $id, $box['label'] . ' entry #' . $id, $reason, $actor);
+                $this->audit->logRequired('inbox.' . $box['key'] . '.deleted', $box['table'], $id, ['reason' => $reason], $actor);
+            });
+            if (!empty($box['resume']) && !empty($row['resume_path'])) {
+                $this->deletion->deleteFile((string) $row['resume_path']);
             }
         }
-        $this->db->delete($box['table'], 'id = :id', ['id' => (int) $row['id']]);
-        $this->audit->log('inbox.' . $box['key'] . '.deleted', $box['table'], (int) $row['id'], [], (int) $this->auth->id());
-        $this->flashSuccess('Deleted permanently.');
-        return $this->redirect('/admin/inbox/' . $box['key']);
     }
 
     /** Serve a CV from private storage (never web-accessible directly). */

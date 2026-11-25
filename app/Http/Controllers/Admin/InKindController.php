@@ -12,8 +12,10 @@ use App\Core\View;
 use App\Http\Controllers\Controller;
 use App\Services\AuditService;
 use App\Services\AuthService;
+use App\Services\DonorWhatsAppService;
 use App\Services\InKindCertificateService;
 use App\Services\InKindDonationService;
+use App\Services\RecordDeletionService;
 use InvalidArgumentException;
 use Throwable;
 
@@ -25,7 +27,8 @@ final class InKindController extends Controller
 {
     public function __construct(
         View $view, Session $session, Csrf $csrf, AuthService $auth,
-        private InKindDonationService $inkind, private InKindCertificateService $certificates, private AuditService $audit
+        private InKindDonationService $inkind, private InKindCertificateService $certificates, private AuditService $audit,
+        private RecordDeletionService $deletion, private DonorWhatsAppService $donorWhatsApp
     ) {
         parent::__construct($view, $session, $csrf, $auth);
     }
@@ -112,6 +115,14 @@ final class InKindController extends Controller
         return $this->redirect('/admin/inkind/' . (int) $cert['inkind_id']);
     }
 
+    /** Sends this certificate PDF (the same file as "Download PDF") to the donor's WhatsApp number. */
+    public function whatsapp(Request $request): Response
+    {
+        $r = $this->donorWhatsApp->sendInKind((int) $request->routeParam('id', 0), (int) $this->auth->id());
+        $r['ok'] ? $this->flashSuccess($r['message']) : $this->flashError($r['message']);
+        return $this->redirect($r['inkind_id'] > 0 ? '/admin/inkind/' . $r['inkind_id'] : '/admin/inkind');
+    }
+
     public function download(Request $request): Response
     {
         $cert = $this->certificates->find((int) $request->routeParam('id', 0));
@@ -137,6 +148,48 @@ final class InKindController extends Controller
             ->withHeader('Content-Disposition', 'inline')
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'");
+    }
+
+    /** Permanently delete one pending/rejected in-kind submission (verified ones keep their certificate). */
+    public function destroy(Request $request): Response
+    {
+        $id = (int) $request->routeParam('id', 0);
+        try {
+            $reason = RecordDeletionService::cleanReason($request->input('reason', ''));
+        } catch (InvalidArgumentException $e) {
+            $this->flashError($e->getMessage());
+            return $this->redirect('/admin/inkind/' . $id);
+        }
+        $result = $this->deletion->deleteInKind($id, (int) $this->auth->id(), $reason);
+        if ($result['ok']) {
+            $this->flashSuccess($result['message']);
+            return $this->redirect('/admin/inkind');
+        }
+        $this->flashError($result['message']);
+        return $this->redirect('/admin/inkind/' . $id);
+    }
+
+    public function bulkDestroy(Request $request): Response
+    {
+        $ids = RecordDeletionService::cleanIds($request->input('ids', []));
+        if ($ids === []) {
+            $this->flashError('Tick at least one donation first.');
+            return $this->redirect('/admin/inkind');
+        }
+        try {
+            $reason = RecordDeletionService::cleanReason($request->input('reason', ''));
+        } catch (InvalidArgumentException $e) {
+            $this->flashError($e->getMessage());
+            return $this->redirect('/admin/inkind');
+        }
+        $r = $this->deletion->bulk($ids, (int) $this->auth->id(), fn (int $id, int $actor): array => $this->deletion->deleteInKind($id, $actor, $reason));
+        if ($r['deleted'] > 0) {
+            $this->flashSuccess($r['deleted'] . ' in-kind donation' . ($r['deleted'] === 1 ? '' : 's') . ' deleted.');
+        }
+        if ($r['skipped'] !== []) {
+            $this->flashWarning(count($r['skipped']) . ' not deleted: ' . implode(' | ', array_slice($r['skipped'], 0, 5)) . (count($r['skipped']) > 5 ? ' …' : ''));
+        }
+        return $this->redirect('/admin/inkind');
     }
 
     // ------------------------------------------------------------------ helpers

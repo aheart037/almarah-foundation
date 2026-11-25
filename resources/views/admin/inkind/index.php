@@ -71,12 +71,21 @@ $cardLink = 'display:block;color:inherit;text-decoration:none';
       <?php if ($query): ?><a class="btn btn-brand" href="<?= e(base_url('admin/inkind')) ?>">Show everything</a><?php endif; ?>
     </div>
   <?php else: ?>
+  <?php $canDelete = isset($can) && $can('inkind.delete'); ?>
+  <?php if ($canDelete): ?>
+  <form method="post" action="<?= e(base_url('admin/inkind/bulk-delete')) ?>" data-bulk data-confirm-template="Permanently delete {n} selected in-kind donation(s) and their photos? Verified ones are skipped. This cannot be undone.">
+    <?= csrf_field() ?>
+    <?php $bulkNoun = 'in-kind donations'; require __DIR__ . '/../../partials/bulk-delete-bar.php'; ?>
+  <?php endif; ?>
   <div class="table-wrap">
     <table class="data-table">
-      <thead><tr><th>Reference</th><th>Donor</th><th>Items donated</th><th>Status</th><th>Certificate</th></tr></thead>
+      <thead><tr><?php if ($canDelete): ?><th style="width:32px"><input type="checkbox" data-bulk-all aria-label="Select all deletable donations"></th><?php endif; ?><th>Reference</th><th>Donor</th><th>Items donated</th><th>Status</th><th>Certificate</th></tr></thead>
       <tbody>
       <?php foreach ($result['rows'] as $r): ?>
         <tr>
+          <?php if ($canDelete): $why = \App\Services\RecordDeletionService::inkindBlocker($r); ?>
+            <td><input type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" data-bulk-item <?= $why !== null ? 'disabled title="' . e($why) . '"' : '' ?> aria-label="Select <?= e((string) $r['public_reference']) ?>"></td>
+          <?php endif; ?>
           <td style="white-space:nowrap">
             <a class="mono" href="<?= e(base_url('admin/inkind/' . (int) $r['id'])) ?>"><strong><?= e((string) $r['public_reference']) ?></strong></a>
             <div class="muted" style="font-size:12px"><?= e(dt((string) $r['created_at'], 'j M Y · H:i')) ?></div>
@@ -102,6 +111,7 @@ $cardLink = 'display:block;color:inherit;text-decoration:none';
       </tbody>
     </table>
   </div>
+  <?php if ($canDelete): ?></form><?php endif; ?>
   <?php require __DIR__ . '/../../partials/pagination.php'; ?>
   <?php endif; ?>
 </section>

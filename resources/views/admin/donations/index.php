@@ -105,14 +105,23 @@
       <a class="btn btn-brand" href="<?= e(base_url('admin/donations')) ?>">Show everything</a>
     </div>
   <?php else: ?>
+    <?php $canDelete = isset($can) && $can('donations.delete'); ?>
+    <?php if ($canDelete): ?>
+    <form method="post" action="<?= e(base_url('admin/donations/bulk-delete')) ?>" data-bulk data-confirm-template="Permanently delete {n} selected donation(s)? Only never-paid junk entries can be deleted; anything else is skipped. This cannot be undone.">
+      <?= csrf_field() ?>
+      <?php $bulkNoun = 'donations'; require __DIR__ . '/../../partials/bulk-delete-bar.php'; ?>
+    <?php endif; ?>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>Receipt / Reference</th><th>Transaction date</th><th>Donor / phone / email</th><th>Method / transaction ID</th><th>Verification</th><th>Recipient</th><th>Referrer</th><th>Staff</th><th>Status</th><th class="num">Amount</th><th>Actions</th></tr>
+          <tr><?php if ($canDelete): ?><th style="width:32px"><input type="checkbox" data-bulk-all aria-label="Select all deletable donations"></th><?php endif; ?><th>Receipt / Reference</th><th>Transaction date</th><th>Donor / phone / email</th><th>Method / transaction ID</th><th>Verification</th><th>Recipient</th><th>Referrer</th><th>Staff</th><th>Status</th><th class="num">Amount</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <?php foreach ($donations as $donation): ?>
             <tr>
+              <?php if ($canDelete): $why = \App\Services\RecordDeletionService::quickDonationBlocker($donation); ?>
+                <td><input type="checkbox" name="ids[]" value="<?= (int) $donation['id'] ?>" data-bulk-item <?= $why !== null ? 'disabled title="' . e($why) . '"' : '' ?> aria-label="Select donation <?= e((string) $donation['public_reference']) ?>"></td>
+              <?php endif; ?>
               <td class="mono"><a href="<?= e(base_url('admin/donations/' . (string) $donation['id'])) ?>"><?= e((string) $donation['public_reference']) ?></a><br><small><?= e((string) ($donation['receipt_number'] ?? 'Not issued')) ?></small></td>
               <td><?= e(dt((string) $donation['transaction_at'] ?: $donation['created_at'], 'j M Y H:i')) ?></td>
               <td class="wrap">
@@ -138,6 +147,7 @@
         </tbody>
       </table>
     </div>
+    <?php if ($canDelete): ?></form><?php endif; ?>
 
     <?php
     $query = ['q' => $filters['q'], 'status' => $filters['status'], 'gateway' => $filters['gateway'], 'date_from' => $filters['date_from'], 'date_to' => $filters['date_to'], 'purpose_id' => $filters['purpose_id'] ?? '', 'source' => $filters['source'] ?? ''];

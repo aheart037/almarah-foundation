@@ -45,6 +45,9 @@ final class SimpleConfig
         'backup_passphrase'  => 'BACKUP_PASSPHRASE',
         'backup_keep_days'   => 'BACKUP_KEEP_DAYS',
         'backup_offsite_cmd' => 'BACKUP_OFFSITE_CMD',
+        // WhatsApp Business API (Wetarseel): sends the donor PDF from the donation pages.
+        'wetarseel_api_key'  => 'WETARSEEL_API_KEY',
+        'wetarseel_template' => 'WETARSEEL_TEMPLATE',
     ];
 
     /** The minimum a working installation needs. */

@@ -256,3 +256,27 @@
     });
   });
 })();
+
+/* Bulk delete on list pages: <form data-bulk data-confirm-template="Delete {n} ...?"> with
+   [data-bulk-all] (select all), [data-bulk-item] checkboxes and [data-bulk-submit] button.
+   Disabled checkboxes (records that cannot be deleted) are ignored by select-all. */
+(function () {
+  document.querySelectorAll('form[data-bulk]').forEach(function (form) {
+    var all = form.querySelector('[data-bulk-all]');
+    var submit = form.querySelector('[data-bulk-submit]');
+    var count = form.querySelector('[data-bulk-count]');
+    var template = form.getAttribute('data-confirm-template') || 'Permanently delete {n} selected record(s)? This cannot be undone.';
+    function items() { return Array.prototype.slice.call(form.querySelectorAll('[data-bulk-item]:not(:disabled)')); }
+    function refresh() {
+      var list = items();
+      var n = list.filter(function (c) { return c.checked; }).length;
+      if (submit) submit.disabled = n === 0;
+      if (count) count.textContent = n === 0 ? '' : n + ' selected';
+      if (all) { all.checked = list.length > 0 && n === list.length; all.indeterminate = n > 0 && n < list.length; }
+      form.setAttribute('data-confirm', template.replace('{n}', String(n)));
+    }
+    if (all) all.addEventListener('change', function () { items().forEach(function (c) { c.checked = all.checked; }); refresh(); });
+    form.addEventListener('change', function (e) { if (e.target && e.target.matches && e.target.matches('[data-bulk-item]')) refresh(); });
+    refresh();
+  });
+})();

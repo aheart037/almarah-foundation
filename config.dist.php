@@ -58,6 +58,16 @@ return [
     'backup_keep_days'   => 30,
     'backup_offsite_cmd' => '',   // e.g. 'rclone copy {file} remote:almarah-backups'
 
+    /* ------------------------------------------------------------------------
+     *  OPTIONAL — WhatsApp (Wetarseel Business API). With a key here, the
+     *  "Send on WhatsApp" button appears next to "Download PDF" and sends the
+     *  donor's PDF to their number. Get the key from API Keys in the Wetarseel
+     *  app. Leave empty to hide the button. Needs an approved template, see
+     *  WHATSAPP-WETARSEEL-SETUP.md.
+     * ---------------------------------------------------------------------- */
+    'wetarseel_api_key'  => '',
+    'wetarseel_template' => 'donation_pack',
+
     // LEAVE EMPTY unless the setup page tells you otherwise.
     'public_path' => '',
     'setup_lock'  => '',

@@ -37,6 +37,16 @@ $mailLabel = ['not_sent' => 'not sent', 'queued' => 'queued', 'sent' => 'sent', 
     <div class="sr-actions">
       <?php if ($gen === 'generated'): ?>
         <a class="btn btn-outline-brand" href="<?= e(base_url('admin/donations/' . $did . '/certificate')) ?>">Download PDF</a>
+        <?php if ((string) config('whatsapp.wetarseel.api_key', '') !== '' && isset($can) && $can('donations.verify')): ?>
+          <?php if (trim((string) ($donation['donor_phone'] ?? '')) !== ''): ?>
+            <form method="post" action="<?= e(base_url('admin/donations/' . $did . '/certificate/whatsapp')) ?>" style="display:inline" data-confirm="Send this PDF to the donor on WhatsApp?"><?= csrf_field() ?><button class="btn btn-outline-brand" type="submit">Send on WhatsApp</button></form>
+            <?php foreach (($auditTrail ?? []) as $waRow): if (($waRow['action'] ?? '') === 'donation.certificate.whatsapp_sent'): ?>
+              <span class="muted">Last sent on WhatsApp <?= e(dt((string) $waRow['created_at'], 'j M Y H:i')) ?> UTC</span>
+            <?php break; endif; endforeach; ?>
+          <?php else: ?>
+            <span class="muted">No donor phone on file for WhatsApp</span>
+          <?php endif; ?>
+        <?php endif; ?>
         <?php if ((in_array($mailStatus, ['failed', 'not_sent', 'skipped'], true) || ($mailStatus === 'queued' && !empty($cert['email_last_error']))) && isset($can) && $can('donations.verify')): ?>
           <form method="post" action="<?= e(base_url('admin/donations/' . $did . '/certificate/email')) ?>" style="display:inline"><?= csrf_field() ?><button class="btn btn-light" type="submit">Retry email</button></form>
         <?php endif; ?>

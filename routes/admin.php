@@ -20,6 +20,8 @@ use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\BankLedgerController;
 use App\Http\Controllers\Admin\LedgerController;
 use App\Http\Controllers\Admin\OfflineEntryController;
+use App\Http\Controllers\Admin\RecordEditController;
+use App\Http\Controllers\Admin\DeletedRecordsController;
 use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\InboxController;
@@ -88,7 +90,8 @@ return static function (Router $router) use ($adminContent, $adminContentCsrf, $
     $router->get('/admin/inbox/{box}/{id}', [InboxController::class, 'show'], $can('dashboard.view'), 'admin.inbox.show');
     $router->get('/admin/inbox/{box}/{id}/resume', [InboxController::class, 'resume'], $can('volunteers.manage'), 'admin.inbox.resume');
     $router->post('/admin/inbox/{box}/{id}', [InboxController::class, 'update'], $canCsrf('dashboard.view'), 'admin.inbox.update');
-    $router->post('/admin/inbox/{box}/{id}/delete', [InboxController::class, 'destroy'], $canCsrf('dashboard.view'), 'admin.inbox.delete');
+    $router->post('/admin/inbox/{box}/bulk-delete', [InboxController::class, 'bulkDestroy'], $canCsrf('forms.delete'), 'admin.inbox.bulk_delete');
+    $router->post('/admin/inbox/{box}/{id}/delete', [InboxController::class, 'destroy'], $canCsrf('forms.delete'), 'admin.inbox.delete');
 
     // --- campaigns ----------------------------------------------------------
     $router->get('/admin/campaigns', [CampaignController::class, 'index'], $adminContent, 'admin.campaigns');
@@ -128,18 +131,29 @@ return static function (Router $router) use ($adminContent, $adminContentCsrf, $
     $router->get('/admin/donations/export', [DonationController::class, 'export'], $can('reports.view'), 'admin.donations.export');
     $router->get('/admin/donations/{id}', [DonationController::class, 'show'], $can('donations.view'), 'admin.donations.show');
     $router->post('/admin/donations/{id}/review', [DonationReviewController::class, 'decide'], $canCsrf('donations.verify'), 'admin.donations.review');
+    $router->post('/admin/donations/bulk-delete', [DonationController::class, 'bulkDestroy'], $canCsrf('donations.delete'), 'admin.donations.bulk_delete');
+    $router->post('/admin/donations/{id}/delete', [DonationController::class, 'destroy'], $canCsrf('donations.delete'), 'admin.donations.delete');
+    $router->get('/admin/deleted-records', [DeletedRecordsController::class, 'index'], $can('donations.delete|inkind.delete|forms.delete'), 'admin.deleted');
+    $router->get('/admin/donations/{id}/edit', [RecordEditController::class, 'donationForm'], $can('donations.edit'), 'admin.donations.edit');
+    $router->post('/admin/donations/{id}/edit', [RecordEditController::class, 'donationUpdate'], $canCsrf('donations.edit'), 'admin.donations.edit.save');
     // --- in-kind (goods) donations ---------------------------------------------
     $router->get('/admin/inkind', [InKindController::class, 'index'], $can('inkind.view|inkind.verify'), 'admin.inkind');
     $router->get('/admin/inkind/certificates/{id}/download', [InKindController::class, 'download'], $can('inkind.view|inkind.verify'), 'admin.inkind.certificate.download');
     $router->post('/admin/inkind/certificates/{id}/resend', [InKindController::class, 'resend'], $canCsrf('inkind.verify'), 'admin.inkind.certificate.resend');
+    $router->post('/admin/inkind/certificates/{id}/whatsapp', [InKindController::class, 'whatsapp'], $canCsrf('inkind.verify'), 'admin.inkind.certificate.whatsapp');
     $router->get('/admin/inkind/{id}/photo/{n}', [InKindController::class, 'photo'], $can('inkind.view|inkind.verify'), 'admin.inkind.photo');
     $router->get('/admin/inkind/{id}', [InKindController::class, 'show'], $can('inkind.view|inkind.verify'), 'admin.inkind.show');
     $router->post('/admin/inkind/{id}/decide', [InKindController::class, 'decide'], $canCsrf('inkind.verify'), 'admin.inkind.decide');
+    $router->post('/admin/inkind/bulk-delete', [InKindController::class, 'bulkDestroy'], $canCsrf('inkind.delete'), 'admin.inkind.bulk_delete');
+    $router->post('/admin/inkind/{id}/delete', [InKindController::class, 'destroy'], $canCsrf('inkind.delete'), 'admin.inkind.delete');
+    $router->get('/admin/inkind/{id}/edit', [RecordEditController::class, 'inkindForm'], $can('inkind.edit'), 'admin.inkind.edit');
+    $router->post('/admin/inkind/{id}/edit', [RecordEditController::class, 'inkindUpdate'], $canCsrf('inkind.edit'), 'admin.inkind.edit.save');
     $router->post('/admin/inkind/{id}/certificate', [InKindController::class, 'generate'], $canCsrf('inkind.verify'), 'admin.inkind.certificate.generate');
 
     $router->get('/admin/donations/{id}/certificate', [DonationCertificateController::class, 'download'], $can('donations.view'), 'admin.donations.certificate');
     $router->post('/admin/donations/{id}/certificate/generate', [DonationCertificateController::class, 'generate'], $canCsrf('donations.verify'), 'admin.donations.certificate.generate');
     $router->post('/admin/donations/{id}/certificate/email', [DonationCertificateController::class, 'retryEmail'], $canCsrf('donations.verify'), 'admin.donations.certificate.email');
+    $router->post('/admin/donations/{id}/certificate/whatsapp', [DonationCertificateController::class, 'whatsapp'], $canCsrf('donations.verify'), 'admin.donations.certificate.whatsapp');
     $router->get('/admin/donations/{id}/proof', [DonationReviewController::class, 'proof'], $can('donations.view'), 'admin.donations.proof');
     $router->post('/admin/donations/{id}/reconcile', [DonationController::class, 'reconcile'], $canCsrf('donations.manage'), 'admin.donations.reconcile');
     $router->post('/admin/donations/{id}/refund', [DonationController::class, 'refund'], $canCsrf('donations.manage'), 'admin.donations.refund');

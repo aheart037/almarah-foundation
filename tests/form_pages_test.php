@@ -93,8 +93,14 @@ routeForm($router,$app,'POST','/admin/inbox/volunteers/'.$vid,['_token'=>$token,
 $v=$db->selectOne('SELECT * FROM volunteers WHERE id=:id',['id'=>$vid]);
 checkForm($v['status']==='approved' && (int)$v['campaign_id']===1 && (int)$v['team_id']===1 && (int)$v['reviewed_by']===1, 'volunteer approval and existing campaign/team assignment');
 checkForm($db->int("SELECT COUNT(*) FROM form_case_events WHERE volunteer_id=$vid AND event_type='updated'")===1, 'volunteer status history retained');
-try { routeForm($router,$app,'POST','/admin/inbox/contact/'.$cid.'/delete',['_token'=>$token]); throw new RuntimeException('Case deletion accepted'); }
-catch (\App\Exceptions\HttpException $e) { checkForm($e->statusCode()===403 && $db->int('SELECT COUNT(*) FROM contact_messages')===1, 'contact history protected against inbox deletion'); }
+// Deleting form entries is now a permission (forms.delete), including contact messages. Use a throw-away row
+// so the later steps in this suite can keep using $cid.
+$junkId=$db->insert('contact_messages',['name'=>'Junk','email'=>'junk@example.org','subject'=>'spam','message'=>'buy now']);
+$db->insert('form_case_events',['contact_id'=>$junkId,'event_type'=>'submitted','to_status'=>'new']);
+routeForm($router,$app,'POST','/admin/inbox/contact/'.$junkId.'/delete',['_token'=>$token]);
+checkForm($db->int("SELECT COUNT(*) FROM contact_messages WHERE id=$junkId")===0 && $db->int("SELECT COUNT(*) FROM form_case_events WHERE contact_id=$junkId")===0, 'authorised staff can delete a contact message together with its history');
+checkForm($db->int("SELECT COUNT(*) FROM audit_logs WHERE action='inbox.contact.deleted' AND entity_id='$junkId'")===1, 'form entry deletion is audited');
+checkForm($db->int('SELECT COUNT(*) FROM contact_messages WHERE id='.(int)$cid)===1, 'other contact messages are untouched by a delete');
 
 $filtered=routeForm($router,$app,'GET','/admin/inbox/contact',['q'=>'+923001234567','status'=>'responded','date_from'=>gmdate('Y-m-d'),'date_to'=>gmdate('Y-m-d')]);
 checkForm($filtered->status()===200 && str_contains($filtered->body(),'A Contact'), 'contact search by phone, date and status');

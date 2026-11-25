@@ -196,6 +196,11 @@ $link = static function (string $href, string $label, string $iconName, string $
           </details>
         <?php endif; ?>
 
+        <?php if ($can('donations.delete') || $can('inkind.delete') || $can('forms.delete')): ?>
+          <div class="nav-group">Deleted</div>
+          <?= $link('admin/deleted-records', 'Deleted records', 'audit', $is('/admin/deleted-records')) ?>
+        <?php endif; ?>
+
         <?php if ($can('users.view') || $can('users.manage') || $can('roles.view') || $can('roles.manage') || $can('settings.manage') || $can('logs.view') || $can('backups.manage')): ?>
           <div class="nav-group">System</div>
           <?php if ($can('backups.manage')): ?><?= $link('admin/backups', 'Backups', 'backup', $is('/admin/backups')) ?><?php endif; ?>
